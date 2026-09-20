@@ -161,6 +161,7 @@ export async function PATCH(request: Request) {
   }
 
   let assignedTechnicianId: number | null | undefined;
+  let assignmentChanged = false;
   if (hasAssignedTechnicianInput) {
     const parsedAssigned = parseAssignedTechnicianId(body.assignedTechnicianId);
     if (!parsedAssigned.ok) {
@@ -168,11 +169,25 @@ export async function PATCH(request: Request) {
     }
     assignedTechnicianId = parsedAssigned.value;
 
+    const [currentOrder, technician] = await Promise.all([
+      prisma.repairOrder.findUnique({
+        where: { orderNumber },
+        select: { assignedTechnicianId: true }
+      }),
+      assignedTechnicianId === null
+        ? Promise.resolve(null)
+        : prisma.user.findUnique({
+            where: { id: assignedTechnicianId },
+            select: { id: true, role: true }
+          })
+    ]);
+
+    if (!currentOrder) {
+      return NextResponse.json({ message: '查無此案件' }, { status: 404 });
+    }
+    assignmentChanged = currentOrder.assignedTechnicianId !== assignedTechnicianId;
+
     if (assignedTechnicianId !== null) {
-      const technician = await prisma.user.findUnique({
-        where: { id: assignedTechnicianId },
-        select: { id: true, role: true }
-      });
       if (!technician) {
         return NextResponse.json({ message: '查無指定維修人員' }, { status: 404 });
       }
@@ -184,7 +199,7 @@ export async function PATCH(request: Request) {
 
   const data: Prisma.RepairOrderUpdateInput = {};
   if (hasStatusInput) data.status = status;
-  if (hasAssignedTechnicianInput) {
+  if (hasAssignedTechnicianInput && assignmentChanged) {
     if (assignedTechnicianId === null) {
       data.assignedTechnician = { disconnect: true };
       data.assignedAt = null;

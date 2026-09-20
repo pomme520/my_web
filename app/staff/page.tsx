@@ -473,7 +473,11 @@ export default function StaffPage() {
               <p className="mt-1 text-sm text-slate-600">僅顯示帳號、角色與時間資訊，不含密碼與 session。</p>
             </div>
             <button
-              onClick={fetchUsers}
+              onClick={() => {
+                fetchUsers().catch((usersError) => {
+                  setError(usersError instanceof Error ? usersError.message : '讀取使用者失敗');
+                });
+              }}
               disabled={loadingUsers}
               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
