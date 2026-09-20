@@ -1,6 +1,8 @@
-import { Prisma } from '@prisma/client';
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { getUserFromRequest, hasPermission } from '@/lib/auth';
+import { PermissionName } from '@/lib/permissions';
 
 function text(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
@@ -11,13 +13,34 @@ function newOrderNumber() {
 }
 
 export async function GET(request: Request) {
-  const orderNumber = text(new URL(request.url).searchParams.get('orderNumber'));
-  if (!orderNumber) return NextResponse.json({ message: '請提供案件編號' }, { status: 400 });
+  const url = new URL(request.url);
+  const orderNumber = text(url.searchParams.get('orderNumber'));
+  const staffView = url.searchParams.get('staff') === 'true' || url.searchParams.get('staff') === '1';
+
+  if (staffView) {
+    const user = await getUserFromRequest(request);
+    if (!user) return NextResponse.json({ message: '未登入' }, { status: 401 });
+    if (!(await hasPermission(user, PermissionName.queryOrders))) {
+      return NextResponse.json({ message: '沒有查詢案件權限' }, { status: 403 });
+    }
+
+    const status = text(url.searchParams.get('status'));
+    const orders = await prisma.repairOrder.findMany({
+      where: status ? { status } : {},
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return NextResponse.json({ orders });
+  }
+
+  if (!orderNumber) {
+    return NextResponse.json({ message: '請提供案件編號' }, { status: 400 });
+  }
 
   try {
     const order = await prisma.repairOrder.findUnique({
       where: { orderNumber },
-      select: { orderNumber: true, status: true, customerName: true, department: true, description: true }
+      select: { orderNumber: true, status: true, customerName: true, department: true, description: true, deviceType: true, issueType: true, phone: true, email: true }
     });
     if (!order) return NextResponse.json({ message: '查無此案件' }, { status: 404 });
     return NextResponse.json({ order });
@@ -62,5 +85,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: '資料庫尚未初始化，請先完成 Prisma 初始化。' }, { status: 503 });
     }
     return NextResponse.json({ message: '報修送出失敗，請稍後再試。' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: Request) {
+  const user = await getUserFromRequest(request);
+  if (!user) return NextResponse.json({ message: '未登入' }, { status: 401 });
+  if (!(await hasPermission(user, PermissionName.updateStatus))) {
+    return NextResponse.json({ message: '沒有更新案件狀態權限' }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const orderNumber = text(body.orderNumber);
+  const status = text(body.status);
+
+  if (!orderNumber || !status) {
+    return NextResponse.json({ message: '案件編號與狀態為必填' }, { status: 400 });
+  }
+
+  try {
+    const updated = await prisma.repairOrder.update({
+      where: { orderNumber },
+      data: { status }
+    });
+    return NextResponse.json({ order: updated });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+      return NextResponse.json({ message: '資料庫尚未初始化，請先完成 Prisma 初始化。' }, { status: 503 });
+    }
+    return NextResponse.json({ message: '更新案件狀態失敗' }, { status: 500 });
   }
 }
