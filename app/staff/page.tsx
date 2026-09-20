@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 const STATUS_OPTIONS = ['待確認', '處理中', '已完成', '已取消'] as const;
@@ -37,7 +37,7 @@ export default function StaffPage() {
     [orders, selectedOrderNumber]
   );
 
-  const fetchOrders = async (keepSelection = true) => {
+  const fetchOrders = useCallback(async (keepSelection = true) => {
     setError('');
     setActionMessage('');
     setLoading(true);
@@ -60,9 +60,12 @@ export default function StaffPage() {
       const nextOrders = Array.isArray(data.orders) ? (data.orders as RepairOrder[]) : [];
       setOrders(nextOrders);
 
-      if (!keepSelection || !nextOrders.some((order) => order.orderNumber === selectedOrderNumber)) {
-        setSelectedOrderNumber(nextOrders[0]?.orderNumber ?? '');
-      }
+      setSelectedOrderNumber((currentOrderNumber) => {
+        if (keepSelection && nextOrders.some((order) => order.orderNumber === currentOrderNumber)) {
+          return currentOrderNumber;
+        }
+        return nextOrders[0]?.orderNumber ?? '';
+      });
     } catch (loadError) {
       setOrders([]);
       setSelectedOrderNumber('');
@@ -70,12 +73,11 @@ export default function StaffPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router, statusFilter]);
 
   useEffect(() => {
     fetchOrders(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [fetchOrders]);
 
   const updateStatus = async (status: OrderStatus) => {
     if (!selectedOrder || selectedOrder.status === status) return;
