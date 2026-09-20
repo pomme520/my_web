@@ -78,12 +78,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     {label}
                   </Link>
                 ))}
-                <Link
-                  href="/login"
-                  className="mt-3 block rounded-md bg-blue-50 px-3 py-3 text-sm font-bold text-blue-700 transition hover:bg-blue-100"
-                >
-                  後台登入
-                </Link>
               </nav>
             </aside>
 
