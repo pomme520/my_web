@@ -21,6 +21,12 @@ type RepairOrder = {
   updatedAt: string;
 };
 
+async function readJsonSafe(response: Response) {
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/json')) return {};
+  return response.json().catch(() => ({}));
+}
+
 export default function StaffPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<RepairOrder[]>([]);
@@ -47,12 +53,11 @@ export default function StaffPage() {
       if (statusFilter) searchParams.set('status', statusFilter);
 
       const response = await fetch(`/api/repair-orders?${searchParams.toString()}`, { cache: 'no-store' });
-      const data = await response.json();
-
       if (response.status === 401) {
         router.push('/login');
         return;
       }
+      const data = await readJsonSafe(response);
       if (!response.ok) {
         throw new Error(data.message || '讀取案件失敗');
       }
@@ -92,12 +97,11 @@ export default function StaffPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderNumber: selectedOrder.orderNumber, status })
       });
-      const data = await response.json();
-
       if (response.status === 401) {
         router.push('/login');
         return;
       }
+      const data = await readJsonSafe(response);
       if (!response.ok) {
         throw new Error(data.message || '更新案件狀態失敗');
       }
@@ -136,9 +140,11 @@ export default function StaffPage() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => fetchOrders(true)}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            disabled={loading}
+            aria-busy={loading}
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            重新整理
+            {loading ? '載入中...' : '重新整理'}
           </button>
           <button
             onClick={logout}
