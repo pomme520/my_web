@@ -34,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/services" className="transition hover:text-blue-700">服務說明</Link>
                 <Link href="/booking" className="transition hover:text-blue-700">線上報修</Link>
                 <Link href="/tracking" className="transition hover:text-blue-700">進度查詢</Link>
+                <Link href="/staff" className="transition hover:text-blue-700">維修後台</Link>
               </nav>
 
               <Link href="/booking" className="rounded-md bg-blue-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800">
@@ -52,22 +53,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           <footer className="mt-16 bg-slate-800 text-slate-200">
             <div className="mx-auto grid max-w-7xl gap-8 px-6 py-10 text-sm md:grid-cols-3 lg:px-12">
-              <div>
-                <h2 className="font-bold text-white">台電台東區營業處</h2>
-                <p className="mt-3 leading-6 text-slate-300">電腦設備報修與進度查詢測試平台</p>
-              </div>
-              <div>
-                <h2 className="font-bold text-white">服務時間</h2>
-                <p className="mt-3 leading-6 text-slate-300">週一至週五 08:00–17:00<br />例假日依公告辦理</p>
-              </div>
-              <div>
-                <h2 className="font-bold text-white">聯絡資訊（測試資料）</h2>
-                <p className="mt-3 leading-6 text-slate-300">電話：089-000-000<br />電子信箱：it@example.local</p>
-              </div>
+              <div><h2 className="font-bold text-white">台電台東區營業處</h2><p className="mt-3 leading-6 text-slate-300">電腦設備報修與進度查詢測試平台</p></div>
+              <div><h2 className="font-bold text-white">服務時間</h2><p className="mt-3 leading-6 text-slate-300">週一至週五 08:00–17:00<br />例假日依公告辦理</p></div>
+              <div><h2 className="font-bold text-white">聯絡資訊（測試資料）</h2><p className="mt-3 leading-6 text-slate-300">電話：089-000-000<br />電子信箱：it@example.local</p></div>
             </div>
-            <div className="border-t border-slate-700 py-4 text-center text-xs text-slate-400">
-              © 2026 台電台東區營業處電腦報修網（測試版）
-            </div>
+            <div className="border-t border-slate-700 py-4 text-center text-xs text-slate-400">© 2026 台電台東區營業處電腦報修網（測試版）</div>
           </footer>
         </div>
       </body>
