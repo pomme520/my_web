@@ -27,6 +27,11 @@ async function readJsonSafe(response: Response) {
   return response.json().catch(() => ({}));
 }
 
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('zh-TW');
+}
+
 export default function StaffPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<RepairOrder[]>([]);
@@ -252,11 +257,11 @@ export default function StaffPage() {
                 </p>
                 <p>
                   <span className="text-slate-500">建立時間：</span>
-                  <span className="font-semibold text-slate-900">{new Date(selectedOrder.createdAt).toLocaleString('zh-TW')}</span>
+                  <span className="font-semibold text-slate-900">{formatDateTime(selectedOrder.createdAt)}</span>
                 </p>
                 <p>
                   <span className="text-slate-500">更新時間：</span>
-                  <span className="font-semibold text-slate-900">{new Date(selectedOrder.updatedAt).toLocaleString('zh-TW')}</span>
+                  <span className="font-semibold text-slate-900">{formatDateTime(selectedOrder.updatedAt)}</span>
                 </p>
               </div>
 
