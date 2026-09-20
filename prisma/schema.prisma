@@ -7,23 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  admin
-  technician
-  viewer
-}
-
-enum PermissionName {
-  queryOrders
-  updateStatus
-  managePermissions
-}
-
 model User {
   id           Int       @id @default(autoincrement())
   username     String    @unique
   passwordHash String
-  role         Role
+  role         String
   sessions     Session[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -42,10 +30,10 @@ model Session {
 }
 
 model Permission {
-  id      Int            @id @default(autoincrement())
-  role    Role
-  name    PermissionName
-  enabled Boolean        @default(false)
+  id      Int     @id @default(autoincrement())
+  role    String
+  name    String
+  enabled Boolean @default(false)
 
   @@unique([role, name])
 }

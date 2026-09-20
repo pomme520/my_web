@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { PermissionName, Role } from '@prisma/client';
+import { PermissionName, Role } from '@/lib/permissions';
 import { hasPermission, getUserFromRequest } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
