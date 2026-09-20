@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 170" role="img" aria-labelledby="title desc">
+  <title id="title">台灣電力公司 Taiwan Power Company</title>
+  <desc id="desc">台灣電力公司標誌與中英文名稱</desc>
+  <rect width="760" height="170" fill="#fff"/>
+  <g transform="translate(18 17)">
+    <circle cx="68" cy="68" r="57" fill="#fff" stroke="#1464c0" stroke-width="5"/>
+    <circle cx="68" cy="68" r="47" fill="none" stroke="#1464c0" stroke-width="2"/>
+    <path d="M68 25 L105 91 L68 112 L31 91 Z" fill="none" stroke="#1464c0" stroke-width="3"/>
+    <path d="M68 36 L96 86 L68 100 L40 86 Z" fill="none" stroke="#d9232e" stroke-width="3"/>
+    <path d="M68 45v45M51 69h34M56 57h24M56 81h24" stroke="#1464c0" stroke-width="3"/>
+    <path d="M20 62 Q8 68 20 74M116 62 Q128 68 116 74" fill="none" stroke="#d9232e" stroke-width="3"/>
+  </g>
+  <text x="155" y="78" fill="#111" font-family="DFKai-SB, BiauKai, KaiTi, serif" font-size="42" font-weight="700" letter-spacing="7">台灣電力公司</text>
+  <text x="157" y="122" fill="#111" font-family="Arial, sans-serif" font-size="22" letter-spacing="1">Taiwan Power Company</text>
+</svg>
