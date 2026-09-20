@@ -12,7 +12,7 @@ const navigation = [
   ['/services', '服務說明'],
   ['/booking', '線上報修'],
   ['/tracking', '進度查詢'],
-  ['/staff', '維修後台']
+  ['/staff', '維修後台登入']
 ] as const;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

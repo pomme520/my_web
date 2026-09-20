@@ -2,7 +2,17 @@
 
 import { FormEvent, useState } from 'react';
 
-const emptyForm = { customerName: '', phone: '', email: '', deviceType: '', issueType: '', description: '' };
+const emptyForm = {
+  customerName: '',
+  phone: '',
+  email: '',
+  department: '',
+  deviceType: '',
+  issueType: '',
+  description: ''
+};
+
+const departmentOptions = ['資訊室', '總務室', '營業處', '維修課', '其他'];
 
 export default function BookingPage() {
   const [form, setForm] = useState(emptyForm);
@@ -24,7 +34,16 @@ export default function BookingPage() {
       const response = await fetch('/api/repair-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form)
+        body: JSON.stringify({
+          ...form,
+          customerName: form.customerName.trim(),
+          phone: form.phone.trim(),
+          email: form.email.trim(),
+          department: form.department.trim(),
+          deviceType: form.deviceType.trim(),
+          issueType: form.issueType.trim(),
+          description: form.description.trim()
+        })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || '報修送出失敗');
@@ -47,16 +66,53 @@ export default function BookingPage() {
 
       <form onSubmit={submit} className="mt-8 space-y-5">
         <div className="grid gap-5 md:grid-cols-2">
-          <label className="text-sm font-semibold text-slate-700">申請人姓名（必填）<input required value={form.customerName} onChange={(event) => update('customerName', event.target.value)} className={inputClass} /></label>
-          <label className="text-sm font-semibold text-slate-700">聯絡電話（必填）<input required value={form.phone} onChange={(event) => update('phone', event.target.value)} className={inputClass} /></label>
-          <label className="text-sm font-semibold text-slate-700">電子信箱（非必填）<input type="email" value={form.email} onChange={(event) => update('email', event.target.value)} className={inputClass} /></label>
-          <label className="text-sm font-semibold text-slate-700">設備類型<select required value={form.deviceType} onChange={(event) => update('deviceType', event.target.value)} className={`${inputClass} bg-white`}><option value="">請選擇</option><option value="桌上型電腦">桌上型電腦</option><option value="筆記型電腦">筆記型電腦</option><option value="螢幕">螢幕</option><option value="印表機">印表機</option><option value="其他">其他</option></select></label>
-          <label className="text-sm font-semibold text-slate-700 md:col-span-2">問題類型<select required value={form.issueType} onChange={(event) => update('issueType', event.target.value)} className={`${inputClass} bg-white`}><option value="">請選擇</option><option value="無法開機">無法開機</option><option value="網路問題">網路問題</option><option value="軟體問題">軟體問題</option><option value="硬體問題">硬體問題</option><option value="其他">其他</option></select></label>
-          <label className="text-sm font-semibold text-slate-700 md:col-span-2">問題描述（必填）<textarea required rows={6} value={form.description} onChange={(event) => update('description', event.target.value)} className={inputClass} /></label>
+          <label className="text-sm font-semibold text-slate-700">
+            申請人姓名（必填）
+            <input required value={form.customerName} onChange={(event) => update('customerName', event.target.value)} className={inputClass} />
+          </label>
+
+          <label className="text-sm font-semibold text-slate-700">
+            聯絡電話（必填）
+            <input required value={form.phone} onChange={(event) => update('phone', event.target.value)} className={inputClass} />
+          </label>
+
+          <label className="text-sm font-semibold text-slate-700">
+            電子信箱（非必填）
+            <input type="email" value={form.email} onChange={(event) => update('email', event.target.value)} className={inputClass} />
+          </label>
+
+          <label className="text-sm font-semibold text-slate-700">
+            部門（必填）
+            <select required value={form.department} onChange={(event) => update('department', event.target.value)} className={inputClass}>
+              <option value="">請選擇部門</option>
+              {departmentOptions.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="text-sm font-semibold text-slate-700">
+            設備類型（必填）
+            <input required value={form.deviceType} onChange={(event) => update('deviceType', event.target.value)} className={inputClass} />
+          </label>
+
+          <label className="text-sm font-semibold text-slate-700">
+            問題類型（必填）
+            <input required value={form.issueType} onChange={(event) => update('issueType', event.target.value)} className={inputClass} />
+          </label>
         </div>
+
+        <label className="block text-sm font-semibold text-slate-700">
+          問題描述（必填）
+          <textarea required rows={6} value={form.description} onChange={(event) => update('description', event.target.value)} className={`${inputClass} resize-none`} />
+        </label>
+
         {notice && <p className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
         {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-        <button type="submit" disabled={submitting} className="rounded-md bg-blue-700 px-6 py-3 font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{submitting ? '送出中…' : '送出報修單'}</button>
+
+        <button type="submit" disabled={submitting} className="rounded-md bg-blue-700 px-6 py-3 font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
+          {submitting ? '送出中...' : '送出報修'}
+        </button>
       </form>
     </section>
   );
