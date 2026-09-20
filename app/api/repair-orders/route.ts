@@ -161,19 +161,7 @@ export async function PATCH(request: Request) {
   }
 
   let assignedTechnicianId: number | null | undefined;
-  let currentAssignedTechnicianId: number | null | undefined;
-  let currentAssignedAt: Date | null | undefined;
   if (hasAssignedTechnicianInput) {
-    const currentOrder = await prisma.repairOrder.findUnique({
-      where: { orderNumber },
-      select: { assignedTechnicianId: true, assignedAt: true }
-    });
-    if (!currentOrder) {
-      return NextResponse.json({ message: '查無此案件' }, { status: 404 });
-    }
-    currentAssignedTechnicianId = currentOrder.assignedTechnicianId;
-    currentAssignedAt = currentOrder.assignedAt;
-
     const parsedAssigned = parseAssignedTechnicianId(body.assignedTechnicianId);
     if (!parsedAssigned.ok) {
       return NextResponse.json({ message: '接單維修人員格式不正確' }, { status: 400 });
@@ -196,7 +184,7 @@ export async function PATCH(request: Request) {
 
   const data: Prisma.RepairOrderUpdateInput = {};
   if (hasStatusInput) data.status = status;
-  if (hasAssignedTechnicianInput && currentAssignedTechnicianId !== assignedTechnicianId) {
+  if (hasAssignedTechnicianInput) {
     if (assignedTechnicianId === null) {
       data.assignedTechnician = { disconnect: true };
       data.assignedAt = null;
@@ -204,8 +192,6 @@ export async function PATCH(request: Request) {
       data.assignedTechnician = { connect: { id: assignedTechnicianId } };
       data.assignedAt = new Date();
     }
-  } else if (hasAssignedTechnicianInput && assignedTechnicianId !== null && currentAssignedAt !== undefined) {
-    data.assignedAt = currentAssignedAt;
   }
 
   try {

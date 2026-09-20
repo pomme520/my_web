@@ -270,10 +270,11 @@ export default function StaffPage() {
       setShowUsersList(false);
       return;
     }
-    setShowUsersList(true);
     try {
       await fetchUsers();
+      setShowUsersList(true);
     } catch (usersError) {
+      setShowUsersList(false);
       setError(usersError instanceof Error ? usersError.message : '讀取使用者失敗');
     }
   };
