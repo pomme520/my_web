@@ -281,7 +281,15 @@ export default function StaffPage() {
 
   const saveAssignedTechnician = async () => {
     if (!selectedOrder || !permissions.updateStatus) return;
-    const nextAssignedTechnicianId = selectedTechnicianId ? Number(selectedTechnicianId) : null;
+    const parsedTechnicianId = selectedTechnicianId ? Number(selectedTechnicianId) : null;
+    if (
+      parsedTechnicianId !== null &&
+      (!Number.isFinite(parsedTechnicianId) || !Number.isInteger(parsedTechnicianId) || parsedTechnicianId <= 0)
+    ) {
+      setError('接單維修人員格式不正確');
+      return;
+    }
+    const nextAssignedTechnicianId = parsedTechnicianId;
     const currentAssignedTechnicianId = selectedOrder.assignedTechnician?.id ?? null;
     if (nextAssignedTechnicianId === currentAssignedTechnicianId) return;
 

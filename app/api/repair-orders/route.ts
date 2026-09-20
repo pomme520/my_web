@@ -143,8 +143,9 @@ export async function PATCH(request: Request) {
   const bodyRaw = await request.json().catch(() => ({}));
   const body = typeof bodyRaw === 'object' && bodyRaw ? bodyRaw : {};
   const orderNumber = text(body.orderNumber);
-  const hasStatusInput = Object.prototype.hasOwnProperty.call(body, 'status');
+  const hasRawStatusInput = Object.prototype.hasOwnProperty.call(body, 'status');
   const status = text(body.status);
+  const hasStatusInput = typeof body.status === 'string' && status.length > 0;
   const hasAssignedTechnicianInput = Object.prototype.hasOwnProperty.call(body, 'assignedTechnicianId');
 
   if (!orderNumber) {
@@ -153,7 +154,7 @@ export async function PATCH(request: Request) {
   if (!hasStatusInput && !hasAssignedTechnicianInput) {
     return NextResponse.json({ message: '請提供至少一項更新欄位' }, { status: 400 });
   }
-  if (hasStatusInput && !status) {
+  if (hasRawStatusInput && typeof body.status !== 'string') {
     return NextResponse.json({ message: '狀態值不正確' }, { status: 400 });
   }
   if (hasStatusInput && !isAllowedStatus(status)) {
