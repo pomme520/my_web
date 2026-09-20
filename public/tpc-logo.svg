@@ -1,15 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 170" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 273 100" role="img" aria-labelledby="title desc">
   <title id="title">台灣電力公司 Taiwan Power Company</title>
   <desc id="desc">台灣電力公司標誌與中英文名稱</desc>
-  <rect width="760" height="170" fill="#fff"/>
-  <g transform="translate(18 17)">
-    <circle cx="68" cy="68" r="57" fill="#fff" stroke="#1464c0" stroke-width="5"/>
-    <circle cx="68" cy="68" r="47" fill="none" stroke="#1464c0" stroke-width="2"/>
-    <path d="M68 25 L105 91 L68 112 L31 91 Z" fill="none" stroke="#1464c0" stroke-width="3"/>
-    <path d="M68 36 L96 86 L68 100 L40 86 Z" fill="none" stroke="#d9232e" stroke-width="3"/>
-    <path d="M68 45v45M51 69h34M56 57h24M56 81h24" stroke="#1464c0" stroke-width="3"/>
-    <path d="M20 62 Q8 68 20 74M116 62 Q128 68 116 74" fill="none" stroke="#d9232e" stroke-width="3"/>
+  <rect width="273" height="100" fill="#fff"/>
+  <g transform="translate(7 20)">
+    <circle cx="30" cy="30" r="28" fill="#fff" stroke="#075fc2" stroke-width="2"/>
+    <circle cx="30" cy="30" r="23" fill="none" stroke="#075fc2" stroke-width="1.2"/>
+    <path d="M30 7 L49 41 L30 54 L11 41 Z" fill="none" stroke="#075fc2" stroke-width="1.8"/>
+    <path d="M30 13 L44 40 L30 49 L16 40 Z" fill="none" stroke="#df2634" stroke-width="1.7"/>
+    <path d="M30 18v26M20 31h20M22 24h16M22 38h16" stroke="#075fc2" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M9 26 Q3 30 9 34M51 26 Q57 30 51 34" fill="none" stroke="#df2634" stroke-width="1.6" stroke-linecap="round"/>
   </g>
-  <text x="155" y="78" fill="#111" font-family="DFKai-SB, BiauKai, KaiTi, serif" font-size="42" font-weight="700" letter-spacing="7">台灣電力公司</text>
-  <text x="157" y="122" fill="#111" font-family="Arial, sans-serif" font-size="22" letter-spacing="1">Taiwan Power Company</text>
+  <text x="78" y="43" fill="#111" font-family="DFKai-SB, BiauKai, KaiTi, serif" font-size="21" font-weight="700" letter-spacing="2">台灣電力公司</text>
+  <text x="80" y="69" fill="#111" font-family="Arial, sans-serif" font-size="14" letter-spacing=".4">Taiwan Power Company</text>
 </svg>
