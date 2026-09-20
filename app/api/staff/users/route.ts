@@ -13,6 +13,14 @@ function isRole(value: string): value is Role {
   return roles.includes(value as Role);
 }
 
+function parseUserId(value: string | null) {
+  const idRaw = text(value);
+  if (!/^\d+$/.test(idRaw)) return null;
+  const id = Number(idRaw);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  return id;
+}
+
 async function getUserManageAccess(request: Request) {
   const user = await getUserFromRequest(request);
   if (!user) return { user: null, canManageUsers: false };
@@ -95,5 +103,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: '資料庫尚未初始化，請先完成 Prisma 初始化。' }, { status: 503 });
     }
     return NextResponse.json({ message: '新增使用者失敗，請稍後再試' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const { user, canManageUsers } = await getUserManageAccess(request);
+  if (!user) return NextResponse.json({ message: '未登入' }, { status: 401 });
+  if (!canManageUsers) {
+    return NextResponse.json({ message: '只有管理員可刪除使用者' }, { status: 403 });
+  }
+
+  const userId = parseUserId(new URL(request.url).searchParams.get('id'));
+  if (!userId) {
+    return NextResponse.json({ message: '使用者 id 格式錯誤' }, { status: 400 });
+  }
+  if (userId === user.id) {
+    return NextResponse.json({ message: '不可刪除目前登入中的自己帳號' }, { status: 400 });
+  }
+
+  try {
+    const deletedUser = await prisma.user.delete({
+      where: { id: userId },
+      select: { id: true, username: true, role: true }
+    });
+    return NextResponse.json({ user: deletedUser });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ message: '查無此使用者' }, { status: 404 });
+    }
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+      return NextResponse.json({ message: '資料庫尚未初始化，請先完成 Prisma 初始化。' }, { status: 503 });
+    }
+    return NextResponse.json({ message: '刪除使用者失敗，請稍後再試' }, { status: 500 });
   }
 }
