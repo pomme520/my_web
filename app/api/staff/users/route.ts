@@ -13,16 +13,43 @@ function isRole(value: string): value is Role {
   return roles.includes(value as Role);
 }
 
-export async function POST(request: Request) {
+async function getUserManageAccess(request: Request) {
   const user = await getUserFromRequest(request);
-  if (!user) return NextResponse.json({ message: '未登入' }, { status: 401 });
-
+  if (!user) return { user: null, canManageUsers: false };
   const canManageUsers = user.role === Role.admin || (await hasPermission(user, PermissionName.managePermissions));
+  return { user, canManageUsers };
+}
+
+export async function GET(request: Request) {
+  const { user, canManageUsers } = await getUserManageAccess(request);
+  if (!user) return NextResponse.json({ message: '未登入' }, { status: 401 });
+  if (!canManageUsers) {
+    return NextResponse.json({ message: '只有管理員可檢視使用者' }, { status: 403 });
+  }
+
+  try {
+    const users = await prisma.user.findMany({
+      select: { id: true, username: true, role: true, createdAt: true, updatedAt: true },
+      orderBy: { createdAt: 'asc' }
+    });
+    return NextResponse.json({ users });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+      return NextResponse.json({ message: '資料庫尚未初始化，請先完成 Prisma 初始化。' }, { status: 503 });
+    }
+    return NextResponse.json({ message: '讀取使用者失敗，請稍後再試' }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  const { user, canManageUsers } = await getUserManageAccess(request);
+  if (!user) return NextResponse.json({ message: '未登入' }, { status: 401 });
   if (!canManageUsers) {
     return NextResponse.json({ message: '只有管理員可新增使用者' }, { status: 403 });
   }
 
-  const body = await request.json().catch(() => ({}));
+  const bodyRaw = await request.json().catch(() => ({}));
+  const body = typeof bodyRaw === 'object' && bodyRaw ? bodyRaw : {};
   const username = text(body.username);
   const password = String(body.password ?? '');
   const role = text(body.role);
