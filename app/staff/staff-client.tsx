@@ -41,9 +41,10 @@ export default function StaffClient() {
       </div>
 
       <div className="mt-10 border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-        <label className="block text-sm font-bold text-slate-700">案件編號</label>
+        <label htmlFor="staff-order-number" className="block text-sm font-bold text-slate-700">案件編號</label>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row">
           <input
+            id="staff-order-number"
             value={number}
             onChange={(e) => setNumber(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && search()}

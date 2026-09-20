@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       return NextResponse.json({ message: '資料庫作業失敗，請稍後再試。' }, { status: 503 });
     }
-    console.error('Login API unexpected error', error);
+    console.error('Login API unexpected error');
     return NextResponse.json({ message: '登入服務暫時無法使用，請稍後再試。' }, { status: 500 });
   }
 }
