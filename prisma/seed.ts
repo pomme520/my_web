@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { PermissionName, Role } from '../lib/permissions';
+import { Role, getDefaultPermissionsForRole, roles } from '../lib/permissions';
 
 const prisma = new PrismaClient();
 
@@ -20,24 +20,14 @@ async function main() {
     });
   }
 
-  const permissions = [
-    [Role.admin, PermissionName.queryOrders, true],
-    [Role.admin, PermissionName.updateStatus, true],
-    [Role.admin, PermissionName.managePermissions, true],
-    [Role.technician, PermissionName.queryOrders, true],
-    [Role.technician, PermissionName.updateStatus, true],
-    [Role.technician, PermissionName.managePermissions, false],
-    [Role.viewer, PermissionName.queryOrders, true],
-    [Role.viewer, PermissionName.updateStatus, false],
-    [Role.viewer, PermissionName.managePermissions, false]
-  ] as const;
-
-  for (const [role, name, enabled] of permissions) {
-    await prisma.permission.upsert({
-      where: { role_name: { role, name } },
-      update: { enabled },
-      create: { role, name, enabled }
-    });
+  for (const role of roles) {
+    for (const permission of getDefaultPermissionsForRole(role)) {
+      await prisma.permission.upsert({
+        where: { role_name: { role: permission.role, name: permission.name } },
+        update: { enabled: permission.enabled },
+        create: permission
+      });
+    }
   }
 }
 
