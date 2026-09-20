@@ -55,7 +55,8 @@ model RepairOrder {
   orderNumber  String   @unique
   customerName String
   phone        String
-  email        String
+  email        String   @default("")
+  department   String
   deviceType   String
   issueType    String
   description  String
