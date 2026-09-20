@@ -13,7 +13,12 @@ type Order = {
 };
 
 const roleOrder: Role[] = ['admin', 'technician', 'viewer'];
-const roleLabels: Record<Role, string> = { admin: '系統管理員', technician: '維修人員', viewer: '查詢人員' };
+const roleLabels: Record<Role, string> = {
+  admin: '系統管理員',
+  technician: '維修人員',
+  viewer: '查詢人員'
+};
+
 const permissionLabels: Record<PermissionKey, string> = {
   queryOrders: '查詢報修案件',
   updateStatus: '更新案件狀態',
@@ -34,41 +39,46 @@ export default function StaffPage() {
   const [result, setResult] = useState<Order | null>(null);
   const [error, setError] = useState('');
   const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const [saved, setSaved] = useState('');
-  const [loadingSettings, setLoadingSettings] = useState(true);
   const [statusDraft, setStatusDraft] = useState('待確認');
+  const [saved, setSaved] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const hasPermission = (permission: PermissionKey) => !!settings[selectedRole]?.[permission];
+  const hasPermission = (permission: PermissionKey) => Boolean(settings[selectedRole]?.[permission]);
 
   useEffect(() => {
-    const localRole = localStorage.getItem('staff-role') as Role | null;
-    const localSettings = localStorage.getItem('staff-permissions');
-
-    if (localRole && roleOrder.includes(localRole)) setSelectedRole(localRole);
-    if (localSettings) {
-      try {
-        const parsed = JSON.parse(localSettings) as Settings;
-        setSettings(parsed);
-      } catch {
-        setSettings(defaultSettings);
+    const boot = async () => {
+      const savedRole = localStorage.getItem('staff-role') as Role | null;
+      if (savedRole && roleOrder.includes(savedRole)) {
+        setSelectedRole(savedRole);
       }
-    }
 
-    fetch('/api/permissions')
-      .then((response) => response.json())
-      .then((data) => {
-        const nextSettings = data.settings ?? defaultSettings;
-        setSettings(nextSettings);
-        localStorage.setItem('staff-permissions', JSON.stringify(nextSettings));
-      })
-      .catch(() => {
-        setError('無法載入權限設定。');
-      })
-      .finally(() => setLoadingSettings(false));
+      try {
+        const response = await fetch('/api/permissions', { credentials: 'same-origin' });
+        const data = await response.json();
+        if (data.currentRole && roleOrder.includes(data.currentRole)) {
+          setSelectedRole(data.currentRole);
+        }
+        if (data.settings) {
+          setSettings(data.settings);
+        }
+      } catch {
+        // ignore and retain defaults
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    boot();
   }, []);
 
   useEffect(() => {
     localStorage.setItem('staff-role', selectedRole);
+    fetch('/api/permissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ role: selectedRole })
+    }).catch(() => undefined);
   }, [selectedRole]);
 
   useEffect(() => {
@@ -82,7 +92,7 @@ export default function StaffPage() {
     setResult(null);
 
     if (!hasPermission('queryOrders')) {
-      setError(`當前角色「${roleLabels[selectedRole]}」沒有查詢報修案件的權限。`);
+      setError(`角色「${roleLabels[selectedRole]}」沒有查詢案件的權限。`);
       return;
     }
 
@@ -91,39 +101,48 @@ export default function StaffPage() {
       return;
     }
 
-    const res = await fetch('/api/repair-orders?orderNumber=' + encodeURIComponent(number));
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.message);
+    const response = await fetch('/api/repair-orders?orderNumber=' + encodeURIComponent(number), {
+      credentials: 'same-origin'
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || '查詢失敗');
       return;
     }
+
     setResult(data.order);
+  };
+
+  const saveSettings = async () => {
+    setError('');
+    setSaved('');
+
+    const response = await fetch('/api/permissions', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ settings })
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || '權限設定儲存失敗');
+      return;
+    }
+
+    setSettings(data.settings);
+    setSaved('權限設定已儲存。');
   };
 
   const updatePermission = (role: Role, permission: PermissionKey) => {
     setSettings((current) => ({
       ...current,
-      [role]: { ...current[role], [permission]: !current[role][permission] }
+      [role]: {
+        ...current[role],
+        [permission]: !current[role][permission]
+      }
     }));
-    setSaved('');
-  };
-
-  const saveSettings = async () => {
-    setSaved('');
-    setError('');
-    const response = await fetch('/api/permissions', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ settings })
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      setError(data.message ?? '權限設定儲存失敗。');
-      return;
-    }
-    setSettings(data.settings);
-    localStorage.setItem('staff-permissions', JSON.stringify(data.settings));
-    setSaved('權限設定已儲存。');
   };
 
   const updateStatus = async () => {
@@ -131,23 +150,26 @@ export default function StaffPage() {
       setError('請先查詢案件。');
       return;
     }
+
     if (!hasPermission('updateStatus')) {
-      setError(`當前角色「${roleLabels[selectedRole]}」沒有更新案件狀態的權限。`);
+      setError(`角色「${roleLabels[selectedRole]}」沒有更新案件狀態的權限。`);
       return;
     }
 
     const response = await fetch('/api/repair-orders', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({ orderNumber: result.orderNumber, status: statusDraft })
     });
+
     const data = await response.json();
     if (!response.ok) {
-      setError(data.message ?? '案件狀態更新失敗。');
+      setError(data.message || '狀態更新失敗');
       return;
     }
+
     setResult(data.order);
-    setError('');
     setSaved('案件狀態已更新。');
   };
 
@@ -155,11 +177,11 @@ export default function StaffPage() {
     <div className="mx-auto max-w-6xl px-6 py-12 lg:px-12">
       <div className="border-l-4 border-blue-700 pl-5">
         <p className="text-sm font-bold tracking-widest text-blue-700">STAFF CONSOLE</p>
-        <h1 className="mt-2 text-4xl font-black text-slate-900">後台查詢系統</h1>
-        <p className="mt-4 text-slate-600">角色權限控制、案件查詢與狀態更新。</p>
+        <h1 className="mt-2 text-4xl font-black text-slate-900">後台管理中心</h1>
+        <p className="mt-4 text-slate-600">依角色檢查權限，進行案件查詢與維修狀態管控。</p>
       </div>
 
-      <div className="mt-8 border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mt-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="flex-1">
             <label className="block text-sm font-bold text-slate-700">登入角色</label>
@@ -173,13 +195,16 @@ export default function StaffPage() {
               ))}
             </select>
           </div>
+
           <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-            目前權限：{hasPermission('queryOrders') ? '可查詢' : '不可查詢'} / {hasPermission('updateStatus') ? '可更新狀態' : '不可更新狀態'}
+            目前權限：
+            {hasPermission('queryOrders') ? '可查詢' : '不可查詢'} /
+            {hasPermission('updateStatus') ? '可更新狀態' : '不可更新狀態'}
           </div>
         </div>
       </div>
 
-      <div className="mt-10 border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+      <div className="mt-10 rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:p-8">
         <h2 className="text-xl font-black text-slate-900">案件查詢</h2>
         <label className="mt-5 block text-sm font-bold text-slate-700">案件編號</label>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row">
@@ -198,7 +223,7 @@ export default function StaffPage() {
       </div>
 
       {result && (
-        <div className="mt-6 border border-slate-200 bg-white shadow-sm">
+        <div className="mt-6 rounded-lg border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm text-slate-500">案件編號</p>
@@ -232,7 +257,11 @@ export default function StaffPage() {
                   ))}
                 </select>
               </div>
-              <button onClick={updateStatus} className="rounded-md bg-slate-900 px-6 py-3 font-bold text-white transition hover:bg-slate-700">
+
+              <button
+                onClick={updateStatus}
+                className="rounded-md bg-slate-900 px-6 py-3 font-bold text-white transition hover:bg-slate-700"
+              >
                 更新狀態
               </button>
             </div>
@@ -240,14 +269,19 @@ export default function StaffPage() {
         </div>
       )}
 
-      <section className="mt-8 border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+      <section className="mt-8 rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:p-8">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
           <div>
             <p className="text-sm font-bold tracking-widest text-blue-700">ACCESS CONTROL</p>
             <h2 className="mt-1 text-2xl font-black text-slate-900">系統設定權限</h2>
-            <p className="mt-2 text-sm text-slate-600">設定每個後台角色可使用的功能。</p>
+            <p className="mt-2 text-sm text-slate-600">設定每個角色可使用的後台功能。</p>
           </div>
-          <button onClick={saveSettings} disabled={loadingSettings} className="rounded-md bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
+
+          <button
+            onClick={saveSettings}
+            disabled={loading || selectedRole !== 'admin'}
+            className="rounded-md bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
             儲存設定
           </button>
         </div>
@@ -274,6 +308,7 @@ export default function StaffPage() {
                           checked={settings[role][permission]}
                           onChange={() => updatePermission(role, permission)}
                           className="h-4 w-4 accent-blue-700"
+                          disabled={selectedRole !== 'admin'}
                         />
                         <span className="text-slate-600">{settings[role][permission] ? '允許' : '停用'}</span>
                       </label>
@@ -287,7 +322,7 @@ export default function StaffPage() {
 
         {saved && <p className="mt-4 border border-green-200 bg-green-50 p-3 text-green-700">{saved}</p>}
         <p className="mt-4 text-xs leading-6 text-slate-500">
-          此版本以瀏覽器 localStorage 持久化後台角色與權限設定，並實作前端權限檢查。正式環境建議再接入後端驗證與資料庫存取。
+          此版本已接入後端權限檢查：只有具備權限的角色，才能查詢案件與更新狀態。管理員可保存權限設定。
         </p>
       </section>
     </div>
