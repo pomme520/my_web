@@ -22,14 +22,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="min-h-screen bg-slate-100 text-slate-800">
           <div className="bg-slate-800 text-sm text-white"><div className="mx-auto flex max-w-7xl justify-between px-6 py-2 lg:px-12"><span>台灣電力公司｜台東區營業處</span><span>電腦設備報修系統</span></div></div>
           <header className="border-b border-slate-200 bg-white">
-            <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-5 lg:px-12">
-              <Link href="/" className="flex items-center gap-4 md:gap-5" aria-label="台灣電力公司台東區營業處首頁">
-                <img src="/tpclogo.svg" alt="台灣電力公司 Taiwan Power Company" className="h-[78px] w-auto shrink-0 object-contain md:h-[90px]" />
-                <div className="flex flex-col justify-center leading-[0.82] text-[#111111]">
-                  <span className="brand-chinese text-[clamp(1.8rem,2.3vw,3rem)] font-black tracking-[-0.07em]">
+            <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-4 lg:px-12">
+              <Link href="/" className="flex items-center gap-3 md:gap-4" aria-label="台灣電力公司台東區營業處首頁">
+                <img src="/tpclogo.svg" alt="台灣電力公司 Taiwan Power Company" className="h-[70px] w-auto shrink-0 object-contain md:h-[86px]" />
+                <div className="flex flex-col justify-center leading-none text-[#111111]">
+                  <span className="brand-chinese text-[clamp(1.8rem,2vw,2.9rem)] font-black tracking-[-0.08em]">
                     台東區營業處
                   </span>
-                  <span className="mt-1 text-[clamp(0.8rem,1vw,1.3rem)] font-semibold tracking-[0.12em] text-[#111111]">
+                  <span className="mt-1.5 text-[clamp(0.7rem,0.8vw,1.15rem)] font-semibold tracking-[0.12em] text-[#111111]">
                     TAIWAN POWER COMPANY
                   </span>
                 </div>
