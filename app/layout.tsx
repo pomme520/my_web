@@ -44,12 +44,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
               <div className="flex items-center gap-2">
                 <Link
-                  href="/login"
-                  className="rounded-md border border-blue-700 px-4 py-2.5 text-sm font-bold text-blue-700 transition hover:bg-blue-50"
-                >
-                  後台登入
-                </Link>
-                <Link
                   href="/booking"
                   className="rounded-md bg-blue-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
                 >
@@ -95,7 +89,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <div className="mt-3 space-y-2">
                   <Link href="/booking" className="block hover:text-white">線上報修</Link>
                   <Link href="/tracking" className="block hover:text-white">進度查詢</Link>
-                  <Link href="/login" className="block hover:text-white">後台登入</Link>
                 </div>
               </div>
               <div>
