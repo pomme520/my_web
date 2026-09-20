@@ -2,8 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Role } from '@/lib/permissions';
 
 const STATUS_OPTIONS = ['待確認', '處理中', '已完成', '已取消'] as const;
+const ROLE_OPTIONS: Role[] = [Role.admin, Role.technician, Role.viewer];
+const ROLE_LABELS: Record<Role, string> = {
+  [Role.admin]: '管理員',
+  [Role.technician]: '技術人員',
+  [Role.viewer]: '檢視者'
+};
 
 type OrderStatus = (typeof STATUS_OPTIONS)[number];
 
@@ -21,6 +28,11 @@ type RepairOrder = {
   updatedAt: string;
 };
 
+type StaffPermissions = {
+  updateStatus: boolean;
+  managePermissions: boolean;
+};
+
 async function readJsonSafe(response: Response) {
   const contentType = response.headers.get('content-type') ?? '';
   if (!contentType.includes('application/json')) return {};
@@ -32,6 +44,39 @@ function formatDateTime(value: string) {
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('zh-TW');
 }
 
+function csvCell(value: string) {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+function downloadCsv(orders: RepairOrder[], statusFilter: string) {
+  const headers = ['案件編號', '狀態', '申請人', '電話', 'Email', '部門', '設備類型', '問題類型', '問題描述', '建立時間', '更新時間'];
+  const rows = orders.map((order) => [
+    order.orderNumber,
+    order.status,
+    order.customerName,
+    order.phone,
+    order.email,
+    order.department,
+    order.deviceType,
+    order.issueType,
+    order.description,
+    formatDateTime(order.createdAt),
+    formatDateTime(order.updatedAt)
+  ]);
+  const content = `\uFEFF${[headers, ...rows].map((row) => row.map((value) => csvCell(String(value ?? ''))).join(',')).join('\r\n')}`;
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+
+  link.href = url;
+  link.download = `案件清單${statusFilter ? `-${statusFilter}` : '-全部'}-${date}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 export default function StaffPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<RepairOrder[]>([]);
@@ -40,8 +85,15 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
   const [error, setError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
+  const [permissions, setPermissions] = useState<StaffPermissions>({ updateStatus: false, managePermissions: false });
+  const [showCreateUserForm, setShowCreateUserForm] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newRole, setNewRole] = useState<Role>(Role.viewer);
 
   const selectedOrder = useMemo(
     () => orders.find((order) => order.orderNumber === selectedOrderNumber) ?? null,
@@ -68,6 +120,10 @@ export default function StaffPage() {
       }
 
       const nextOrders = Array.isArray(data.orders) ? (data.orders as RepairOrder[]) : [];
+      setPermissions({
+        updateStatus: data.permissions?.updateStatus === true,
+        managePermissions: data.permissions?.managePermissions === true
+      });
       setOrders(nextOrders);
 
       setSelectedOrderNumber((currentOrderNumber) => {
@@ -79,6 +135,7 @@ export default function StaffPage() {
     } catch (loadError) {
       setOrders([]);
       setSelectedOrderNumber('');
+      setPermissions({ updateStatus: false, managePermissions: false });
       setError(loadError instanceof Error ? loadError.message : '讀取案件失敗');
     } finally {
       setLoading(false);
@@ -120,6 +177,61 @@ export default function StaffPage() {
     }
   };
 
+  const createUser = async () => {
+    setCreatingUser(true);
+    setError('');
+    setActionMessage('');
+
+    try {
+      const response = await fetch('/api/staff/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: newUsername.trim(),
+          password: newPassword,
+          role: newRole
+        })
+      });
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+
+      const data = await readJsonSafe(response);
+      if (!response.ok) {
+        throw new Error(data.message || '新增使用者失敗');
+      }
+
+      setActionMessage(`使用者 ${newUsername.trim()} 已建立`);
+      setNewUsername('');
+      setNewPassword('');
+      setNewRole(Role.viewer);
+      setShowCreateUserForm(false);
+      await fetchOrders(true);
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : '新增使用者失敗');
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  const exportOrders = async () => {
+    if (loading || orders.length === 0) return;
+
+    setExporting(true);
+    setError('');
+    setActionMessage('');
+
+    try {
+      downloadCsv(orders, statusFilter);
+      setActionMessage(`已匯出 ${orders.length} 筆案件`);
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : '匯出失敗');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const logout = async () => {
     setLoggingOut(true);
     setError('');
@@ -143,9 +255,25 @@ export default function StaffPage() {
           <p className="mt-3 text-slate-600">查看所有報修案件、檢視細節並更新處理狀態。</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {permissions.managePermissions && (
+            <button
+              onClick={() => setShowCreateUserForm((current) => !current)}
+              disabled={creatingUser || loading}
+              className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {showCreateUserForm ? '取消新增使用者' : '新增使用者'}
+            </button>
+          )}
+          <button
+            onClick={exportOrders}
+            disabled={loading || exporting || orders.length === 0}
+            className="rounded-md border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {exporting ? '匯出中...' : '匯出'}
+          </button>
           <button
             onClick={() => fetchOrders(true)}
-            disabled={loading || updatingStatus}
+            disabled={loading || updatingStatus || creatingUser}
             aria-busy={loading}
             className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -153,13 +281,83 @@ export default function StaffPage() {
           </button>
           <button
             onClick={logout}
-            disabled={loggingOut || loading || updatingStatus}
+            disabled={loggingOut || loading || updatingStatus || creatingUser}
             className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {loggingOut ? '登出中...' : '登出'}
           </button>
         </div>
       </div>
+
+      {permissions.managePermissions && showCreateUserForm && (
+        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">新增使用者</h2>
+              <p className="mt-1 text-sm text-slate-600">建立新使用者並套用角色預設權限。</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="text-sm font-semibold text-slate-700">
+                帳號
+                <input
+                  value={newUsername}
+                  onChange={(event) => setNewUsername(event.target.value)}
+                  className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-blue-700"
+                  autoComplete="username"
+                  aria-label="新增使用者帳號"
+                />
+              </label>
+              <label className="text-sm font-semibold text-slate-700">
+                密碼
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-blue-700"
+                  autoComplete="new-password"
+                  aria-label="新增使用者密碼"
+                />
+              </label>
+              <label className="text-sm font-semibold text-slate-700">
+                角色
+                <select
+                  value={newRole}
+                  onChange={(event) => setNewRole(event.target.value as Role)}
+                  className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-blue-700"
+                  aria-label="新增使用者角色"
+                >
+                  {ROLE_OPTIONS.map((role) => (
+                    <option key={role} value={role}>
+                      {ROLE_LABELS[role]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={createUser}
+                disabled={creatingUser || !newUsername.trim() || !newPassword}
+                className="rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {creatingUser ? '建立中...' : '建立使用者'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowCreateUserForm(false);
+                  setNewUsername('');
+                  setNewPassword('');
+                  setNewRole(Role.viewer);
+                }}
+                disabled={creatingUser}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -276,6 +474,7 @@ export default function StaffPage() {
 
               <div>
                 <p className="mb-2 text-slate-500">變更狀態：</p>
+                {!permissions.updateStatus && <p className="mb-2 text-sm text-slate-500">您目前只有查詢權限，無法更新案件狀態。</p>}
                 <div className="flex flex-wrap gap-2">
                   {STATUS_OPTIONS.map((status) =>
                     selectedOrder.status === status ? (
@@ -290,7 +489,7 @@ export default function StaffPage() {
                       <button
                         key={status}
                         onClick={() => updateStatus(status)}
-                        disabled={updatingStatus}
+                        disabled={updatingStatus || !permissions.updateStatus}
                         className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {status}

@@ -39,7 +39,12 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' }
     });
 
-    return NextResponse.json({ orders });
+    const [updateStatus, managePermissions] = await Promise.all([
+      hasPermission(user, PermissionName.updateStatus),
+      hasPermission(user, PermissionName.managePermissions)
+    ]);
+
+    return NextResponse.json({ orders, permissions: { updateStatus, managePermissions } });
   }
 
   if (!orderNumber) {
