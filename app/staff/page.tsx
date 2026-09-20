@@ -245,14 +245,19 @@ export default function StaffPage() {
     try {
       const response = await fetch('/api/staff/users', { cache: 'no-store' });
       if (response.status === 401) {
+        setUsers([]);
         router.push('/login');
         return;
       }
       const data = await readJsonSafe(response);
       if (!response.ok) {
+        setUsers([]);
         throw new Error(data.message || '讀取使用者失敗');
       }
       setUsers(Array.isArray(data.users) ? (data.users as StaffUser[]) : []);
+    } catch (error) {
+      setUsers([]);
+      throw error;
     } finally {
       setLoadingUsers(false);
     }
