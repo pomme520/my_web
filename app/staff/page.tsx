@@ -145,7 +145,7 @@ export default function StaffPage() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => fetchOrders(true)}
-            disabled={loading}
+            disabled={loading || updatingStatus}
             aria-busy={loading}
             className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -153,7 +153,7 @@ export default function StaffPage() {
           </button>
           <button
             onClick={logout}
-            disabled={loggingOut}
+            disabled={loggingOut || loading || updatingStatus}
             className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {loggingOut ? '登出中...' : '登出'}
@@ -291,7 +291,6 @@ export default function StaffPage() {
                         key={status}
                         onClick={() => updateStatus(status)}
                         disabled={updatingStatus}
-                        aria-pressed="false"
                         className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {status}
