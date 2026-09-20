@@ -4,12 +4,18 @@ import { prisma } from '@/lib/prisma';
 import { getUserFromRequest, hasPermission } from '@/lib/auth';
 import { PermissionName } from '@/lib/permissions';
 
+const ALLOWED_STATUSES = ['待確認', '處理中', '已完成', '已取消'] as const;
+
 function text(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
 function newOrderNumber() {
   return `R-${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 900 + 100)}`;
+}
+
+function isAllowedStatus(status: string) {
+  return ALLOWED_STATUSES.includes(status as (typeof ALLOWED_STATUSES)[number]);
 }
 
 export async function GET(request: Request) {
@@ -25,6 +31,9 @@ export async function GET(request: Request) {
     }
 
     const status = text(url.searchParams.get('status'));
+    if (status && !isAllowedStatus(status)) {
+      return NextResponse.json({ message: '狀態值不正確' }, { status: 400 });
+    }
     const orders = await prisma.repairOrder.findMany({
       where: status ? { status } : {},
       orderBy: { createdAt: 'desc' }
@@ -102,6 +111,9 @@ export async function PATCH(request: Request) {
   if (!orderNumber || !status) {
     return NextResponse.json({ message: '案件編號與狀態為必填' }, { status: 400 });
   }
+  if (!isAllowedStatus(status)) {
+    return NextResponse.json({ message: '狀態值不正確' }, { status: 400 });
+  }
 
   try {
     const updated = await prisma.repairOrder.update({
@@ -110,6 +122,9 @@ export async function PATCH(request: Request) {
     });
     return NextResponse.json({ order: updated });
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ message: '查無此案件' }, { status: 404 });
+    }
     if (error instanceof Prisma.PrismaClientInitializationError) {
       return NextResponse.json({ message: '資料庫尚未初始化，請先完成 Prisma 初始化。' }, { status: 503 });
     }
