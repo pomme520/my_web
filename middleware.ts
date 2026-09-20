@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+const SESSION_COOKIE = 'session_token';
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const protectedPath = pathname.startsWith('/staff') || pathname.startsWith('/api/permissions') || pathname.startsWith('/api/repair-orders');
-  if (!protectedPath || request.cookies.has('session_token')) return NextResponse.next();
-  if (pathname.startsWith('/api/')) return NextResponse.json({ message: '未登入' }, { status: 401 });
+  if (!pathname.startsWith('/staff') || request.cookies.has(SESSION_COOKIE)) return NextResponse.next();
   return NextResponse.redirect(new URL('/login', request.url));
 }
 
-export const config = { matcher: ['/staff/:path*', '/api/permissions/:path*', '/api/repair-orders/:path*'] };
+export const config = { matcher: ['/staff/:path*'] };

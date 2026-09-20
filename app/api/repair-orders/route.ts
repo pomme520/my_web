@@ -1,161 +1,57 @@
-'use client';
+import { Prisma } from '@prisma/client';
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-import { FormEvent, useState } from 'react';
+function text(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
 
-const emptyForm = {
-  customerName: '',
-  phone: '',
-  email: '',
-  department: '',
-  deviceType: '',
-  issueType: '',
-  description: ''
-};
+function newOrderNumber() {
+  return `R-${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 900 + 100)}`;
+}
 
-const departmentOptions = ['資訊室', '總務室', '營業處', '維修課', '其他'];
+export async function GET(request: Request) {
+  const orderNumber = text(new URL(request.url).searchParams.get('orderNumber'));
+  if (!orderNumber) return NextResponse.json({ message: '請提供案件編號' }, { status: 400 });
 
-export default function BookingPage() {
-  const [form, setForm] = useState(emptyForm);
-  const [notice, setNotice] = useState('');
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const update = (field: keyof typeof emptyForm, value: string) => {
-    setForm((current) => ({ ...current, [field]: value }));
-  };
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setNotice('');
-    setError('');
-    setSubmitting(true);
-
-    try {
-      const response = await fetch('/api/repair-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          customerName: form.customerName.trim(),
-          phone: form.phone.trim(),
-          email: form.email.trim(),
-          department: form.department.trim(),
-          deviceType: form.deviceType.trim(),
-          issueType: form.issueType.trim(),
-          description: form.description.trim()
-        })
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || '報修送出失敗');
-
-      setNotice(`報修單已送出，案件編號：${data.orderNumber}`);
-      setForm(emptyForm);
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : '報修送出失敗');
-    } finally {
-      setSubmitting(false);
+  try {
+    const order = await prisma.repairOrder.findUnique({
+      where: { orderNumber },
+      select: { orderNumber: true, status: true, customerName: true, department: true, description: true }
+    });
+    if (!order) return NextResponse.json({ message: '查無此案件' }, { status: 404 });
+    return NextResponse.json({ order });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+      return NextResponse.json({ message: '資料庫尚未初始化，請先完成 Prisma 初始化。' }, { status: 503 });
     }
+    return NextResponse.json({ message: '查詢失敗，請稍後再試。' }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  const body = await request.json().catch(() => ({}));
+  const customerName = text(body.customerName);
+  const phone = text(body.phone);
+  const email = text(body.email);
+  const department = text(body.department) || '未提供';
+  const deviceType = text(body.deviceType);
+  const issueType = text(body.issueType);
+  const description = text(body.description);
+
+  if (!customerName || !phone || !deviceType || !issueType || !description) {
+    return NextResponse.json({ message: '請完整填寫必填欄位' }, { status: 400 });
   }
 
-  const inputClass = 'mt-2 w-full rounded-md border border-slate-300 p-3 font-normal outline-none focus:border-blue-700';
-
-  return (
-    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-      <p className="text-sm font-bold tracking-widest text-blue-700">ONLINE REPAIR</p>
-      <h1 className="mt-2 text-3xl font-black text-slate-900">線上報修</h1>
-      <p className="mt-3 text-slate-600">請填寫以下資料，送出後可使用案件編號查詢進度。</p>
-
-      <form onSubmit={submit} className="mt-8 space-y-5">
-        <div className="grid gap-5 md:grid-cols-2">
-          <label className="text-sm font-semibold text-slate-700">
-            申請人姓名（必填）
-            <input
-              required
-              value={form.customerName}
-              onChange={(event) => update('customerName', event.target.value)}
-              className={inputClass}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-slate-700">
-            聯絡電話（必填）
-            <input
-              required
-              value={form.phone}
-              onChange={(event) => update('phone', event.target.value)}
-              className={inputClass}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-slate-700">
-            電子信箱（非必填）
-            <input
-              type="email"
-              value={form.email}
-              onChange={(event) => update('email', event.target.value)}
-              className={inputClass}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-slate-700">
-            部門（必填）
-            <select
-              required
-              value={form.department}
-              onChange={(event) => update('department', event.target.value)}
-              className={inputClass}
-            >
-              <option value="">請選擇部門</option>
-              {departmentOptions.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-sm font-semibold text-slate-700">
-            設備類型（必填）
-            <input
-              required
-              value={form.deviceType}
-              onChange={(event) => update('deviceType', event.target.value)}
-              className={inputClass}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-slate-700">
-            問題類型（必填）
-            <input
-              required
-              value={form.issueType}
-              onChange={(event) => update('issueType', event.target.value)}
-              className={inputClass}
-            />
-          </label>
-        </div>
-
-        <label className="block text-sm font-semibold text-slate-700">
-          問題描述（必填）
-          <textarea
-            required
-            rows={6}
-            value={form.description}
-            onChange={(event) => update('description', event.target.value)}
-            className={`${inputClass} resize-none`}
-          />
-        </label>
-
-        {notice && <p className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
-        {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="rounded-md bg-blue-700 px-6 py-3 font-bold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {submitting ? '送出中...' : '送出報修'}
-        </button>
-      </form>
-    </section>
-  );
+  try {
+    const created = await prisma.repairOrder.create({
+      data: { orderNumber: newOrderNumber(), customerName, phone, email, department, deviceType, issueType, description }
+    });
+    return NextResponse.json({ orderNumber: created.orderNumber }, { status: 201 });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+      return NextResponse.json({ message: '資料庫尚未初始化，請先完成 Prisma 初始化。' }, { status: 503 });
+    }
+    return NextResponse.json({ message: '報修送出失敗，請稍後再試。' }, { status: 500 });
+  }
 }
