@@ -565,7 +565,7 @@ export default function StaffPage() {
                           disabled={deletingUserId !== null || currentUser?.id === user.id}
                           className="rounded-md border border-red-300 bg-red-50 px-3 py-1 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          {currentUser?.id === user.id ? '目前登入中' : deletingUserId !== null ? '刪除中...' : '刪除'}
+                          {currentUser?.id === user.id ? '目前登入中' : deletingUserId === user.id ? '刪除中...' : '刪除'}
                         </button>
                       </td>
                     </tr>
