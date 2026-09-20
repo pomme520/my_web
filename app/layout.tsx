@@ -29,9 +29,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <span className="brand-chinese text-[clamp(1.8rem,2vw,2.9rem)] font-black tracking-[-0.08em]">
                     台東區營業處
                   </span>
-                  <span className="mt-1.5 text-[clamp(0.7rem,0.8vw,1.15rem)] font-semibold tracking-[0.12em] text-[#111111]">
-                    TAIWAN POWER COMPANY
-                  </span>
                 </div>
               </Link>
               <Link href="/booking" className="rounded-md bg-blue-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800">線上報修</Link>
