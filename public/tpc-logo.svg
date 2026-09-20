@@ -1,35 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 130" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 140" role="img" aria-labelledby="title desc">
   <title id="title">台灣電力公司</title>
-  <desc id="desc">台灣電力公司標誌，左側為藍色圓形電力標誌，右側中英文公司名稱</desc>
-  <rect width="500" height="130" fill="#ffffff"/>
+  <desc id="desc">左側藍紅圓形電力標誌，右側為中文與英文公司名稱</desc>
+  <rect width="560" height="140" fill="#ffffff"/>
 
-  <g transform="translate(18,15)">
-    <circle cx="46" cy="46" r="38" fill="#ffffff" stroke="#0a4ea3" stroke-width="3"/>
-    <circle cx="46" cy="46" r="31" fill="none" stroke="#0a4ea3" stroke-width="3"/>
+  <g transform="translate(18,18)">
+    <circle cx="52" cy="52" r="44" fill="#ffffff" stroke="#0c52a5" stroke-width="4"/>
+    <circle cx="52" cy="52" r="35" fill="none" stroke="#0c52a5" stroke-width="2.5"/>
 
-    <path d="M46 10 L60 40 L32 40 Z" fill="#0a4ea3" opacity="0.98"/>
-    <path d="M46 10 L39 28 L53 28 Z" fill="#d71d2a"/>
-    <path d="M46 24 L55 41 L37 41 Z" fill="#0a4ea3"/>
+    <path d="M52 16 L63 36 L41 36 Z" fill="#0c52a5"/>
+    <path d="M52 16 L45 31 L59 31 Z" fill="#dd2d2d"/>
+    <path d="M43 38 L52 59 L61 38 Z" fill="#0c52a5"/>
+    <path d="M52 13 L56 18 L52 24 L48 18 Z" fill="#dd2d2d"/>
 
-    <path d="M24 49 C31 58, 39 62, 46 64 C53 62, 61 58, 68 49" fill="none" stroke="#0a4ea3" stroke-width="3" stroke-linecap="round"/>
-    <path d="M20 56 C29 66, 37 72, 46 74 C55 72, 63 66, 72 56" fill="none" stroke="#d71d2a" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M22 59 C30 72, 40 79, 52 82 C64 79, 74 72, 82 59" fill="none" stroke="#0c52a5" stroke-width="3.2" stroke-linecap="round"/>
+    <path d="M18 68 C29 83, 40 90, 52 93 C64 90, 75 83, 86 68" fill="none" stroke="#dd2d2d" stroke-width="2.6" stroke-linecap="round"/>
 
-    <path d="M42 14 L46 18 L50 14" fill="none" stroke="#d71d2a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M35 22 L46 38 L57 22" fill="none" stroke="#d71d2a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M52 29 L52 72" stroke="#0c52a5" stroke-width="2.7" stroke-linecap="round"/>
+    <path d="M38 39 L52 52 L66 39" fill="none" stroke="#dd2d2d" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
 
-    <path d="M46 42 L46 69" stroke="#0a4ea3" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="M38 48 L46 58 L54 48" fill="none" stroke="#0a4ea3" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M26 27 L40 38 L32 47 L18 36 Z" fill="#0c52a5" opacity="0.9"/>
+    <path d="M78 27 L64 38 L72 47 L86 36 Z" fill="#0c52a5" opacity="0.9"/>
 
-    <g fill="#0a4ea3">
-      <path d="M46 20 L52 28 L46 36 L40 28 Z" fill="#0a4ea3" opacity="0.95"/>
-      <path d="M31 27 L36 32 L32 38 L25 35 Z" fill="#0a4ea3" opacity="0.84"/>
-      <path d="M61 27 L56 32 L60 38 L67 35 Z" fill="#0a4ea3" opacity="0.84"/>
-    </g>
+    <circle cx="52" cy="52" r="4.5" fill="#dd2d2d"/>
   </g>
 
-  <g transform="translate(118,0)">
-    <text x="0" y="52" font-size="33" font-weight="700" fill="#111111" font-family="Microsoft JhengHei, PMingLiU, sans-serif" letter-spacing="2">台灣電力公司</text>
-    <text x="6" y="88" font-size="18" font-weight="700" fill="#1d1d1d" font-family="Arial, Helvetica, sans-serif" letter-spacing="1.2">TAIWAN POWER COMPANY</text>
+  <g transform="translate(142,15)">
+    <text x="0" y="60" fill="#111111" font-size="34" font-weight="700" font-family="'Yuanti TC','Microsoft JhengHei','PingFang TC','Noto Sans TC','serif'" letter-spacing="3">台灣電力公司</text>
+    <text x="6" y="94" fill="#1f1f1f" font-size="18" font-weight="700" font-family="Arial, Helvetica, sans-serif" letter-spacing="1.2">TAIWAN POWER COMPANY</text>
   </g>
 </svg>
