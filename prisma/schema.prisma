@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  technician
+  viewer
+}
+
+enum PermissionName {
+  queryOrders
+  updateStatus
+  managePermissions
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  passwordHash String
+  role         Role
+  sessions     Session[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Permission {
+  id      Int            @id @default(autoincrement())
+  role    Role
+  name    PermissionName
+  enabled Boolean        @default(false)
+
+  @@unique([role, name])
+}
+
+model RepairOrder {
+  id           Int      @id @default(autoincrement())
+  orderNumber  String   @unique
+  customerName String
+  phone        String
+  email        String
+  deviceType   String
+  issueType    String
+  description  String
+  status       String   @default("待確認")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
