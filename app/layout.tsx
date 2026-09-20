@@ -12,7 +12,7 @@ const navigation = [
   ['/services', '服務說明'],
   ['/booking', '線上報修'],
   ['/tracking', '進度查詢'],
-  ['/staff', '維修後台登入']
+  ['/login', '維修後台登入']
 ] as const;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -48,6 +48,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   className="rounded-md bg-blue-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800"
                 >
                   線上報修
+                </Link>
+                <Link
+                  href="/login"
+                  className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                >
+                  後台登入
                 </Link>
               </div>
             </div>
@@ -89,6 +95,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <div className="mt-3 space-y-2">
                   <Link href="/booking" className="block hover:text-white">線上報修</Link>
                   <Link href="/tracking" className="block hover:text-white">進度查詢</Link>
+                  <Link href="/login" className="block hover:text-white">維修後台登入</Link>
                 </div>
               </div>
               <div>
