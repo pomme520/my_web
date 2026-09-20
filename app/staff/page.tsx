@@ -162,9 +162,10 @@ export default function StaffPage() {
       </div>
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
-        <label className="text-sm font-semibold text-slate-700">
+        <label htmlFor="status-filter" className="text-sm font-semibold text-slate-700">
           狀態篩選
           <select
+            id="status-filter"
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
             className="ml-3 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-700"
