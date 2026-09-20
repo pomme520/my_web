@@ -161,7 +161,17 @@ export async function PATCH(request: Request) {
   }
 
   let assignedTechnicianId: number | null | undefined;
+  let currentAssignedTechnicianId: number | null | undefined;
   if (hasAssignedTechnicianInput) {
+    const currentOrder = await prisma.repairOrder.findUnique({
+      where: { orderNumber },
+      select: { assignedTechnicianId: true }
+    });
+    if (!currentOrder) {
+      return NextResponse.json({ message: '查無此案件' }, { status: 404 });
+    }
+    currentAssignedTechnicianId = currentOrder.assignedTechnicianId;
+
     const parsedAssigned = parseAssignedTechnicianId(body.assignedTechnicianId);
     if (!parsedAssigned.ok) {
       return NextResponse.json({ message: '接單維修人員格式不正確' }, { status: 400 });
@@ -184,11 +194,11 @@ export async function PATCH(request: Request) {
 
   const data: Prisma.RepairOrderUpdateInput = {};
   if (hasStatusInput) data.status = status;
-  if (hasAssignedTechnicianInput) {
+  if (hasAssignedTechnicianInput && currentAssignedTechnicianId !== assignedTechnicianId) {
     if (assignedTechnicianId === null) {
       data.assignedTechnician = { disconnect: true };
       data.assignedAt = null;
-    } else {
+    } else if (assignedTechnicianId !== undefined) {
       data.assignedTechnician = { connect: { id: assignedTechnicianId } };
       data.assignedAt = new Date();
     }
