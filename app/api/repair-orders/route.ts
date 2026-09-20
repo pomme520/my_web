@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { checkPermission, getCurrentRoleName } from '@/app/api/permissions/route';
 
 type Order = {
   orderNumber: string;
@@ -45,6 +46,11 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const role = getCurrentRoleName(request);
+  if (!checkPermission(request, 'queryOrders')) {
+    return NextResponse.json({ message: `角色 ${role} 沒有查詢案件之權限` }, { status: 403 });
+  }
+
   const orderNumber = new URL(request.url).searchParams.get('orderNumber');
   if (!orderNumber) return NextResponse.json({ orders: [...orders].reverse() });
   const order = orders.find((item) => item.orderNumber.toLowerCase() === orderNumber.toLowerCase());
@@ -53,6 +59,11 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const role = getCurrentRoleName(request);
+  if (!checkPermission(request, 'updateStatus')) {
+    return NextResponse.json({ message: `角色 ${role} 沒有更新案件狀態之權限` }, { status: 403 });
+  }
+
   const body = await request.json();
   const order = orders.find((item) => item.orderNumber === body.orderNumber);
   if (!order) return NextResponse.json({ message: '找不到此案件' }, { status: 404 });
