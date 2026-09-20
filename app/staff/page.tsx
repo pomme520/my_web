@@ -13,6 +13,7 @@ const ROLE_LABELS: Record<Role, string> = {
 };
 
 type OrderStatus = (typeof STATUS_OPTIONS)[number];
+type TechnicianOption = { id: number; username: string };
 
 type RepairOrder = {
   orderNumber: string;
@@ -24,6 +25,7 @@ type RepairOrder = {
   deviceType: string;
   issueType: string;
   description: string;
+  assignedTechnician?: TechnicianOption | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -31,6 +33,13 @@ type RepairOrder = {
 type StaffPermissions = {
   updateStatus: boolean;
   managePermissions: boolean;
+};
+type StaffUser = {
+  id: number;
+  username: string;
+  role: Role;
+  createdAt: string;
+  updatedAt: string;
 };
 
 async function readJsonSafe(response: Response) {
@@ -49,7 +58,7 @@ function csvCell(value: string) {
 }
 
 function downloadCsv(orders: RepairOrder[], statusFilter: string) {
-  const headers = ['案件編號', '狀態', '申請人', '電話', 'Email', '部門', '設備類型', '問題類型', '問題描述', '建立時間', '更新時間'];
+  const headers = ['案件編號', '狀態', '申請人', '電話', 'Email', '部門', '設備類型', '問題類型', '接單維修人員', '問題描述', '建立時間', '更新時間'];
   const rows = orders.map((order) => [
     order.orderNumber,
     order.status,
@@ -59,6 +68,7 @@ function downloadCsv(orders: RepairOrder[], statusFilter: string) {
     order.department,
     order.deviceType,
     order.issueType,
+    order.assignedTechnician?.username ?? '',
     order.description,
     formatDateTime(order.createdAt),
     formatDateTime(order.updatedAt)
@@ -84,13 +94,19 @@ export default function StaffPage() {
   const [selectedOrderNumber, setSelectedOrderNumber] = useState('');
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [assigningTechnician, setAssigningTechnician] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [creatingUser, setCreatingUser] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [error, setError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
   const [permissions, setPermissions] = useState<StaffPermissions>({ updateStatus: false, managePermissions: false });
+  const [technicians, setTechnicians] = useState<TechnicianOption[]>([]);
+  const [users, setUsers] = useState<StaffUser[]>([]);
   const [showCreateUserForm, setShowCreateUserForm] = useState(false);
+  const [showUsersList, setShowUsersList] = useState(false);
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState<Role>(Role.viewer);
@@ -125,6 +141,7 @@ export default function StaffPage() {
         managePermissions: data.permissions?.managePermissions === true
       });
       setOrders(nextOrders);
+      setTechnicians(Array.isArray(data.technicians) ? (data.technicians as TechnicianOption[]) : []);
 
       setSelectedOrderNumber((currentOrderNumber) => {
         if (keepSelection && nextOrders.some((order) => order.orderNumber === currentOrderNumber)) {
@@ -135,6 +152,7 @@ export default function StaffPage() {
     } catch (loadError) {
       setOrders([]);
       setSelectedOrderNumber('');
+      setTechnicians([]);
       setPermissions({ updateStatus: false, managePermissions: false });
       setError(loadError instanceof Error ? loadError.message : '讀取案件失敗');
     } finally {
@@ -145,6 +163,10 @@ export default function StaffPage() {
   useEffect(() => {
     fetchOrders(false);
   }, [fetchOrders]);
+
+  useEffect(() => {
+    setSelectedTechnicianId(selectedOrder?.assignedTechnician?.id ? String(selectedOrder.assignedTechnician.id) : '');
+  }, [selectedOrder]);
 
   const updateStatus = async (status: OrderStatus) => {
     if (!selectedOrder || selectedOrder.status === status) return;
@@ -207,11 +229,80 @@ export default function StaffPage() {
       setNewPassword('');
       setNewRole(Role.viewer);
       setShowCreateUserForm(false);
+      if (showUsersList) {
+        await fetchUsers();
+      }
       await fetchOrders(true);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : '新增使用者失敗');
     } finally {
       setCreatingUser(false);
+    }
+  };
+
+  const fetchUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    try {
+      const response = await fetch('/api/staff/users', { cache: 'no-store' });
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+      const data = await readJsonSafe(response);
+      if (!response.ok) {
+        throw new Error(data.message || '讀取使用者失敗');
+      }
+      setUsers(Array.isArray(data.users) ? (data.users as StaffUser[]) : []);
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, [router]);
+
+  const toggleUsersList = async () => {
+    setError('');
+    setActionMessage('');
+    if (showUsersList) {
+      setShowUsersList(false);
+      return;
+    }
+    setShowUsersList(true);
+    try {
+      await fetchUsers();
+    } catch (usersError) {
+      setError(usersError instanceof Error ? usersError.message : '讀取使用者失敗');
+    }
+  };
+
+  const saveAssignedTechnician = async () => {
+    if (!selectedOrder || !permissions.updateStatus) return;
+    const nextAssignedTechnicianId = selectedTechnicianId ? Number(selectedTechnicianId) : null;
+    const currentAssignedTechnicianId = selectedOrder.assignedTechnician?.id ?? null;
+    if (nextAssignedTechnicianId === currentAssignedTechnicianId) return;
+
+    setAssigningTechnician(true);
+    setError('');
+    setActionMessage('');
+
+    try {
+      const response = await fetch('/api/repair-orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderNumber: selectedOrder.orderNumber, assignedTechnicianId: nextAssignedTechnicianId })
+      });
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+      const data = await readJsonSafe(response);
+      if (!response.ok) {
+        throw new Error(data.message || '更新接單維修人員失敗');
+      }
+      await fetchOrders(true);
+      setActionMessage(nextAssignedTechnicianId ? '接單維修人員已更新' : '已清除接單維修人員');
+    } catch (assignError) {
+      setError(assignError instanceof Error ? assignError.message : '更新接單維修人員失敗');
+    } finally {
+      setAssigningTechnician(false);
     }
   };
 
@@ -262,6 +353,15 @@ export default function StaffPage() {
               className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {showCreateUserForm ? '取消新增使用者' : '新增使用者'}
+            </button>
+          )}
+          {permissions.managePermissions && (
+            <button
+              onClick={toggleUsersList}
+              disabled={loading || loadingUsers}
+              className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {showUsersList ? '關閉使用者列表' : '檢視使用者'}
             </button>
           )}
           <button
@@ -356,6 +456,52 @@ export default function StaffPage() {
               </button>
             </div>
           </div>
+        </section>
+      )}
+
+      {permissions.managePermissions && showUsersList && (
+        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">使用者列表</h2>
+              <p className="mt-1 text-sm text-slate-600">僅顯示帳號、角色與時間資訊，不含密碼與 session。</p>
+            </div>
+            <button
+              onClick={fetchUsers}
+              disabled={loadingUsers}
+              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loadingUsers ? '載入中...' : '重新整理'}
+            </button>
+          </div>
+          {loadingUsers ? (
+            <p className="text-sm text-slate-500">載入中...</p>
+          ) : users.length === 0 ? (
+            <p className="text-sm text-slate-500">目前沒有可顯示的使用者。</p>
+          ) : (
+            <div className="overflow-auto">
+              <table className="min-w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-slate-50 text-left text-slate-600">
+                    <th className="border border-slate-200 px-3 py-2">帳號</th>
+                    <th className="border border-slate-200 px-3 py-2">角色</th>
+                    <th className="border border-slate-200 px-3 py-2">建立時間</th>
+                    <th className="border border-slate-200 px-3 py-2">更新時間</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id} className="text-slate-700">
+                      <td className="border border-slate-200 px-3 py-2 font-semibold">{user.username}</td>
+                      <td className="border border-slate-200 px-3 py-2">{ROLE_LABELS[user.role] ?? user.role}</td>
+                      <td className="border border-slate-200 px-3 py-2">{formatDateTime(user.createdAt)}</td>
+                      <td className="border border-slate-200 px-3 py-2">{formatDateTime(user.updatedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       )}
 
@@ -465,6 +611,10 @@ export default function StaffPage() {
                   <span className="text-slate-500">更新時間：</span>
                   <span className="font-semibold text-slate-900">{formatDateTime(selectedOrder.updatedAt)}</span>
                 </p>
+                <p>
+                  <span className="text-slate-500">接單維修人員：</span>
+                  <span className="font-semibold text-slate-900">{selectedOrder.assignedTechnician?.username || '未指派'}</span>
+                </p>
               </div>
 
               <div>
@@ -496,6 +646,34 @@ export default function StaffPage() {
                       </button>
                     )
                   )}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-slate-500">接單維修人員：</p>
+                {!permissions.updateStatus && <p className="mb-2 text-sm text-slate-500">您目前沒有指派維修人員權限。</p>}
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={selectedTechnicianId}
+                    onChange={(event) => setSelectedTechnicianId(event.target.value)}
+                    disabled={!permissions.updateStatus || assigningTechnician}
+                    className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label="接單維修人員"
+                  >
+                    <option value="">未指派</option>
+                    {technicians.map((technician) => (
+                      <option key={technician.id} value={technician.id}>
+                        {technician.username}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={saveAssignedTechnician}
+                    disabled={!permissions.updateStatus || assigningTechnician}
+                    className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {assigningTechnician ? '儲存中...' : '儲存接單維修人員'}
+                  </button>
                 </div>
               </div>
             </div>

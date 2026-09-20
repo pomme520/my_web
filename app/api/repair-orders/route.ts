@@ -18,6 +18,20 @@ function isAllowedStatus(status: string) {
   return ALLOWED_STATUSES.includes(status as (typeof ALLOWED_STATUSES)[number]);
 }
 
+function parseAssignedTechnicianId(value: unknown): { ok: true; value: number | null } | { ok: false } {
+  if (value === null || value === '') return { ok: true, value: null };
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+    return { ok: true, value };
+  }
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    const parsed = Number(value.trim());
+    if (Number.isInteger(parsed) && parsed > 0) {
+      return { ok: true, value: parsed };
+    }
+  }
+  return { ok: false };
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const orderNumber = text(url.searchParams.get('orderNumber'));
@@ -34,17 +48,22 @@ export async function GET(request: Request) {
     if (status && !isAllowedStatus(status)) {
       return NextResponse.json({ message: '狀態值不正確' }, { status: 400 });
     }
-    const orders = await prisma.repairOrder.findMany({
-      where: status ? { status } : {},
-      orderBy: { createdAt: 'desc' }
-    });
-
-    const [updateStatus, managePermissions] = await Promise.all([
+    const [orders, updateStatus, managePermissions, technicians] = await Promise.all([
+      prisma.repairOrder.findMany({
+        where: status ? { status } : {},
+        include: { assignedTechnician: { select: { id: true, username: true } } },
+        orderBy: { createdAt: 'desc' }
+      }),
       hasPermission(user, PermissionName.updateStatus),
-      hasPermission(user, PermissionName.managePermissions)
+      hasPermission(user, PermissionName.managePermissions),
+      prisma.user.findMany({
+        where: { role: 'technician' },
+        select: { id: true, username: true },
+        orderBy: { username: 'asc' }
+      })
     ]);
 
-    return NextResponse.json({ orders, permissions: { updateStatus, managePermissions } });
+    return NextResponse.json({ orders, permissions: { updateStatus, managePermissions }, technicians });
   }
 
   if (!orderNumber) {
@@ -54,7 +73,18 @@ export async function GET(request: Request) {
   try {
     const order = await prisma.repairOrder.findUnique({
       where: { orderNumber },
-      select: { orderNumber: true, status: true, customerName: true, department: true, description: true, deviceType: true, issueType: true, phone: true, email: true }
+      select: {
+        orderNumber: true,
+        status: true,
+        customerName: true,
+        department: true,
+        description: true,
+        deviceType: true,
+        issueType: true,
+        phone: true,
+        email: true,
+        assignedTechnician: { select: { id: true, username: true } }
+      }
     });
     if (!order) return NextResponse.json({ message: '查無此案件' }, { status: 404 });
     return NextResponse.json({ order });
@@ -67,7 +97,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => ({}));
+  const bodyRaw = await request.json().catch(() => ({}));
+  const body = typeof bodyRaw === 'object' && bodyRaw ? bodyRaw : {};
   const customerName = text(body.customerName);
   const phone = text(body.phone);
   const email = text(body.email);
@@ -109,21 +140,65 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ message: '沒有更新案件狀態權限' }, { status: 403 });
   }
 
-  const body = await request.json().catch(() => ({}));
+  const bodyRaw = await request.json().catch(() => ({}));
+  const body = typeof bodyRaw === 'object' && bodyRaw ? bodyRaw : {};
   const orderNumber = text(body.orderNumber);
+  const hasStatusInput = Object.prototype.hasOwnProperty.call(body, 'status');
   const status = text(body.status);
+  const hasAssignedTechnicianInput = Object.prototype.hasOwnProperty.call(body, 'assignedTechnicianId');
 
-  if (!orderNumber || !status) {
-    return NextResponse.json({ message: '案件編號與狀態為必填' }, { status: 400 });
+  if (!orderNumber) {
+    return NextResponse.json({ message: '案件編號為必填' }, { status: 400 });
   }
-  if (!isAllowedStatus(status)) {
+  if (!hasStatusInput && !hasAssignedTechnicianInput) {
+    return NextResponse.json({ message: '請提供至少一項更新欄位' }, { status: 400 });
+  }
+  if (hasStatusInput && !status) {
     return NextResponse.json({ message: '狀態值不正確' }, { status: 400 });
+  }
+  if (hasStatusInput && !isAllowedStatus(status)) {
+    return NextResponse.json({ message: '狀態值不正確' }, { status: 400 });
+  }
+
+  let assignedTechnicianId: number | null | undefined;
+  if (hasAssignedTechnicianInput) {
+    const parsedAssigned = parseAssignedTechnicianId(body.assignedTechnicianId);
+    if (!parsedAssigned.ok) {
+      return NextResponse.json({ message: '接單維修人員格式不正確' }, { status: 400 });
+    }
+    assignedTechnicianId = parsedAssigned.value;
+
+    if (assignedTechnicianId !== null) {
+      const technician = await prisma.user.findUnique({
+        where: { id: assignedTechnicianId },
+        select: { id: true, role: true }
+      });
+      if (!technician) {
+        return NextResponse.json({ message: '查無指定維修人員' }, { status: 404 });
+      }
+      if (technician.role !== 'technician') {
+        return NextResponse.json({ message: '只能指派 technician 角色使用者' }, { status: 400 });
+      }
+    }
+  }
+
+  const data: Prisma.RepairOrderUpdateInput = {};
+  if (hasStatusInput) data.status = status;
+  if (hasAssignedTechnicianInput) {
+    if (assignedTechnicianId === null) {
+      data.assignedTechnician = { disconnect: true };
+      data.assignedAt = null;
+    } else {
+      data.assignedTechnician = { connect: { id: assignedTechnicianId } };
+      data.assignedAt = new Date();
+    }
   }
 
   try {
     const updated = await prisma.repairOrder.update({
       where: { orderNumber },
-      data: { status }
+      data,
+      include: { assignedTechnician: { select: { id: true, username: true } } }
     });
     return NextResponse.json({ order: updated });
   } catch (error) {
