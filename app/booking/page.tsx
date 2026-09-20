@@ -1,39 +1,61 @@
-const items = [
-  ['01', '電腦故障檢測', '檢查電源、記憶體、硬碟與作業系統問題，協助確認故障原因。'],
-  ['02', 'Windows 重灌', '協助重灌系統、安裝驅動程式與完成基本工作環境設定。'],
-  ['03', '病毒與惡意程式處理', '清理惡意軟體、異常廣告程式並提供基本安全建議。'],
-  ['04', 'SSD／記憶體升級', '依設備規格與使用需求提供硬體升級建議。'],
-  ['05', '網路與周邊設定', '處理網路、印表機及其他辦公周邊設備的連線問題。'],
-  ['06', '資料備份與轉移', '協助重要工作檔案備份、轉移及設備更換前的資料整理。']
-];
+'use client';
 
-export default function Services() {
+import { FormEvent, useState } from 'react';
+
+const emptyForm = { customerName: '', phone: '', email: '', deviceType: '', issueType: '', description: '' };
+
+export default function BookingPage() {
+  const [form, setForm] = useState(emptyForm);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const update = (field: keyof typeof emptyForm, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setNotice('');
+    setError('');
+    setSubmitting(true);
+
+    try {
+      const response = await fetch('/api/repair-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || '報修送出失敗');
+      setNotice(`報修單已送出，案件編號：${data.orderNumber}`);
+      setForm(emptyForm);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : '報修送出失敗');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <div className="mx-auto max-w-7xl px-6 py-16 lg:px-12">
-      <div className="border-l-4 border-blue-700 pl-5">
-        <p className="text-sm font-bold tracking-widest text-blue-700">SERVICE INFORMATION</p>
-        <h1 className="mt-2 text-4xl font-black text-slate-900">電腦報修服務說明</h1>
-        <p className="mt-4 max-w-3xl leading-7 text-slate-600">請依設備狀況選擇或描述問題。服務內容目前為測試版示範，實際處理方式以資訊人員判斷為準。</p>
-      </div>
+    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+      <p className="text-sm font-bold tracking-widest text-blue-700">ONLINE REPAIR</p>
+      <h1 className="mt-2 text-3xl font-black text-slate-900">線上報修</h1>
+      <p className="mt-3 text-slate-600">請填寫以下資料，送出後可使用案件編號查詢進度。</p>
 
-      <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {items.map(([number, name, description]) => (
-          <div key={number} className="border border-slate-200 bg-white p-6 shadow-sm">
-            <span className="font-black text-blue-700">{number}</span>
-            <h2 className="mt-4 text-xl font-bold text-slate-900">{name}</h2>
-            <p className="mt-3 leading-7 text-slate-600">{description}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-10 border border-blue-100 bg-blue-50 p-6 text-sm leading-7 text-slate-700">
-        <h2 className="font-bold text-blue-900">報修前提醒</h2>
-        <ul className="mt-2 list-inside list-disc">
-          <li>請盡可能提供完整的設備名稱、錯誤訊息與發生時間。</li>
-          <li>重要資料請先自行備份，避免維修過程造成資料遺失。</li>
-          <li>若設備涉及機密或敏感資料，請於問題描述中註明。</li>
-        </ul>
-      </div>
-    </div>
+      <form onSubmit={submit} className="mt-8 space-y-5">
+        <div className="grid gap-5 md:grid-cols-2">
+          <label className="text-sm font-semibold text-slate-700">申請人姓名（必填）<input required value={form.customerName} onChange={(event) => update('customerName', event.target.value)} className="mt-2 w-full rounded-md border border-slate-300 p-3" /></label>
+          <label className="text-sm font-semibold text-slate-700">聯絡電話（必填）<input required value={form.phone} onChange={(event) => update('phone', event.target.value)} className="mt-2 w-full rounded-md border border-slate-300 p-3" /></label>
+          <label className="text-sm font-semibold text-slate-700">電子信箱（必填）<input required type="email" value={form.email} onChange={(event) => update('email', event.target.value)} className="mt-2 w-full rounded-md border border-slate-300 p-3" /></label>
+          <label className="text-sm font-semibold text-slate-700">設備類型<select required value={form.deviceType} onChange={(event) => update('deviceType', event.target.value)} className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3"><option value="">請選擇</option><option>桌上型電腦</option><option>筆記型電腦</option><option>印表機</option><option>網路設備</option><option>其他</option></select></label>
+          <label className="text-sm font-semibold text-slate-700 md:col-span-2">問題類型<select required value={form.issueType} onChange={(event) => update('issueType', event.target.value)} className="mt-2 w-full rounded-md border border-slate-300 bg-white p-3"><option value="">請選擇</option><option>無法開機</option><option>系統錯誤</option><option>網路問題</option><option>印表機問題</option><option>軟體安裝或設定</option><option>其他</option></select></label>
+          <label className="text-sm font-semibold text-slate-700 md:col-span-2">問題描述（必填）<textarea required rows={6} value={form.description} onChange={(event) => update('description', event.target.value)} placeholder="請描述問題、錯誤訊息與發生時間" className="mt-2 w-full rounded-md border border-slate-300 p-3" /></label>
+        </div>
+        {notice && <p className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+        {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+        <button type="submit" disabled={submitting} className="rounded-md bg-blue-700 px-6 py-3 font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{submitting ? '送出中…' : '送出報修單'}</button>
+      </form>
+    </section>
   );
 }
