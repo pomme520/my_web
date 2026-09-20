@@ -13,6 +13,8 @@ const emptyForm = {
 };
 
 const departmentOptions = ['資訊室', '總務室', '營業處', '維修課', '其他'];
+const deviceTypeOptions = ['桌上型電腦', '筆記型電腦', '螢幕', '印表機', '其他'];
+const issueTypeOptions = ['無法開機', '網路問題', '軟體問題', '硬體問題', '其他'];
 
 export default function BookingPage() {
   const [form, setForm] = useState(emptyForm);
@@ -83,22 +85,26 @@ export default function BookingPage() {
 
           <label className="text-sm font-semibold text-slate-700">
             部門（必填）
-            <select required value={form.department} onChange={(event) => update('department', event.target.value)} className={inputClass}>
+            <select required value={form.department} onChange={(event) => update('department', event.target.value)} className={`${inputClass} bg-white`}>
               <option value="">請選擇部門</option>
-              {departmentOptions.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
+              {departmentOptions.map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
           </label>
 
           <label className="text-sm font-semibold text-slate-700">
             設備類型（必填）
-            <input required value={form.deviceType} onChange={(event) => update('deviceType', event.target.value)} className={inputClass} />
+            <select required value={form.deviceType} onChange={(event) => update('deviceType', event.target.value)} className={`${inputClass} bg-white`}>
+              <option value="">請選擇設備類型</option>
+              {deviceTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
           </label>
 
-          <label className="text-sm font-semibold text-slate-700">
+          <label className="text-sm font-semibold text-slate-700 md:col-span-2">
             問題類型（必填）
-            <input required value={form.issueType} onChange={(event) => update('issueType', event.target.value)} className={inputClass} />
+            <select required value={form.issueType} onChange={(event) => update('issueType', event.target.value)} className={`${inputClass} bg-white`}>
+              <option value="">請選擇問題類型</option>
+              {issueTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
           </label>
         </div>
 
