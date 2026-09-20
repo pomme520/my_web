@@ -63,7 +63,7 @@ export async function GET(request: Request) {
       })
     ]);
 
-    return NextResponse.json({ orders, permissions: { updateStatus, managePermissions }, technicians });
+    return NextResponse.json({ orders, permissions: { updateStatus, managePermissions }, technicians, currentUser: user });
   }
 
   if (!orderNumber) {

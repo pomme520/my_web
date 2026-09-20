@@ -34,6 +34,7 @@ type StaffPermissions = {
   updateStatus: boolean;
   managePermissions: boolean;
 };
+type CurrentStaffUser = { id: number; username: string; role: Role };
 type StaffUser = {
   id: number;
   username: string;
@@ -102,6 +103,7 @@ export default function StaffPage() {
   const [error, setError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
   const [permissions, setPermissions] = useState<StaffPermissions>({ updateStatus: false, managePermissions: false });
+  const [currentUser, setCurrentUser] = useState<CurrentStaffUser | null>(null);
   const [technicians, setTechnicians] = useState<TechnicianOption[]>([]);
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [showCreateUserForm, setShowCreateUserForm] = useState(false);
@@ -110,6 +112,7 @@ export default function StaffPage() {
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState<Role>(Role.viewer);
+  const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
 
   const selectedOrder = useMemo(
     () => orders.find((order) => order.orderNumber === selectedOrderNumber) ?? null,
@@ -140,6 +143,9 @@ export default function StaffPage() {
         updateStatus: data.permissions?.updateStatus === true,
         managePermissions: data.permissions?.managePermissions === true
       });
+      setCurrentUser(
+        data.currentUser && typeof data.currentUser === 'object' ? (data.currentUser as CurrentStaffUser) : null
+      );
       setOrders(nextOrders);
       setTechnicians(Array.isArray(data.technicians) ? (data.technicians as TechnicianOption[]) : []);
 
@@ -153,6 +159,7 @@ export default function StaffPage() {
       setOrders([]);
       setSelectedOrderNumber('');
       setTechnicians([]);
+      setCurrentUser(null);
       setPermissions({ updateStatus: false, managePermissions: false });
       setError(loadError instanceof Error ? loadError.message : '讀取案件失敗');
     } finally {
@@ -320,6 +327,34 @@ export default function StaffPage() {
     }
   };
 
+  const deleteUser = async (targetUser: StaffUser) => {
+    if (!permissions.managePermissions || deletingUserId) return;
+    if (!window.confirm(`確定要刪除使用者「${targetUser.username}」嗎？`)) return;
+
+    setDeletingUserId(targetUser.id);
+    setError('');
+    setActionMessage('');
+
+    try {
+      const response = await fetch(`/api/staff/users?id=${targetUser.id}`, { method: 'DELETE' });
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+      const data = await readJsonSafe(response);
+      if (!response.ok) {
+        throw new Error(data.message || '刪除使用者失敗');
+      }
+
+      await Promise.all([fetchUsers(), fetchOrders(true)]);
+      setActionMessage(`使用者 ${targetUser.username} 已刪除`);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : '刪除使用者失敗');
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
   const exportOrders = async () => {
     if (loading || orders.length === 0) return;
 
@@ -359,47 +394,52 @@ export default function StaffPage() {
           <h1 className="mt-2 text-3xl font-black text-slate-900">案件處理後台</h1>
           <p className="mt-3 text-slate-600">查看所有報修案件、檢視細節並更新處理狀態。</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {permissions.managePermissions && (
+        <div className="flex flex-col items-start gap-2 sm:items-end">
+          <p className="text-sm text-slate-600">
+            目前登入：{currentUser ? `${currentUser.username}（${ROLE_LABELS[currentUser.role] ?? currentUser.role}）` : '-'}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {permissions.managePermissions && (
+              <button
+                onClick={() => setShowCreateUserForm((current) => !current)}
+                disabled={creatingUser || loading}
+                className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {showCreateUserForm ? '取消新增使用者' : '新增使用者'}
+              </button>
+            )}
+            {permissions.managePermissions && (
+              <button
+                onClick={toggleUsersList}
+                disabled={loading || loadingUsers}
+                className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {showUsersList ? '關閉使用者列表' : '檢視使用者'}
+              </button>
+            )}
             <button
-              onClick={() => setShowCreateUserForm((current) => !current)}
-              disabled={creatingUser || loading}
-              className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={exportOrders}
+              disabled={loading || exporting || orders.length === 0}
+              className="rounded-md border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {showCreateUserForm ? '取消新增使用者' : '新增使用者'}
+              {exporting ? '匯出中...' : '匯出'}
             </button>
-          )}
-          {permissions.managePermissions && (
             <button
-              onClick={toggleUsersList}
-              disabled={loading || loadingUsers}
-              className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => fetchOrders(true)}
+              disabled={loading || updatingStatus || creatingUser}
+              aria-busy={loading}
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {showUsersList ? '關閉使用者列表' : '檢視使用者'}
+              {loading ? '載入中...' : '重新整理'}
             </button>
-          )}
-          <button
-            onClick={exportOrders}
-            disabled={loading || exporting || orders.length === 0}
-            className="rounded-md border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {exporting ? '匯出中...' : '匯出'}
-          </button>
-          <button
-            onClick={() => fetchOrders(true)}
-            disabled={loading || updatingStatus || creatingUser}
-            aria-busy={loading}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? '載入中...' : '重新整理'}
-          </button>
-          <button
-            onClick={logout}
-            disabled={loggingOut || loading || updatingStatus || creatingUser}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {loggingOut ? '登出中...' : '登出'}
-          </button>
+            <button
+              onClick={logout}
+              disabled={loggingOut || loading || updatingStatus || creatingUser}
+              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {loggingOut ? '登出中...' : '登出'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -505,6 +545,7 @@ export default function StaffPage() {
                     <th className="border border-slate-200 px-3 py-2">角色</th>
                     <th className="border border-slate-200 px-3 py-2">建立時間</th>
                     <th className="border border-slate-200 px-3 py-2">更新時間</th>
+                    <th className="border border-slate-200 px-3 py-2">操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -514,6 +555,15 @@ export default function StaffPage() {
                       <td className="border border-slate-200 px-3 py-2">{ROLE_LABELS[user.role] ?? user.role}</td>
                       <td className="border border-slate-200 px-3 py-2">{formatDateTime(user.createdAt)}</td>
                       <td className="border border-slate-200 px-3 py-2">{formatDateTime(user.updatedAt)}</td>
+                      <td className="border border-slate-200 px-3 py-2">
+                        <button
+                          onClick={() => deleteUser(user)}
+                          disabled={deletingUserId !== null || currentUser?.id === user.id}
+                          className="rounded-md border border-red-300 bg-red-50 px-3 py-1 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {currentUser?.id === user.id ? '目前登入中' : deletingUserId === user.id ? '刪除中...' : '刪除'}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
