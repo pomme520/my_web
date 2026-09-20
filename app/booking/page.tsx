@@ -12,7 +12,6 @@ const emptyForm = {
   description: ''
 };
 
-const departmentOptions = ['資訊室', '總務室', '營業處', '維修課', '其他'];
 const deviceTypeOptions = ['桌上型電腦', '筆記型電腦', '螢幕', '印表機', '其他'];
 const issueTypeOptions = ['無法開機', '網路問題', '軟體問題', '硬體問題', '其他'];
 
@@ -85,10 +84,13 @@ export default function BookingPage() {
 
           <label className="text-sm font-semibold text-slate-700">
             部門（必填）
-            <select required value={form.department} onChange={(event) => update('department', event.target.value)} className={`${inputClass} bg-white`}>
-              <option value="">請選擇部門</option>
-              {departmentOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
+            <input
+              required
+              value={form.department}
+              onChange={(event) => update('department', event.target.value)}
+              placeholder="請輸入部門名稱"
+              className={inputClass}
+            />
           </label>
 
           <label className="text-sm font-semibold text-slate-700">
