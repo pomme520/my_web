@@ -104,7 +104,6 @@ export default function StaffPage() {
   const [actionMessage, setActionMessage] = useState('');
   const [permissions, setPermissions] = useState<StaffPermissions>({ updateStatus: false, managePermissions: false });
   const [currentUser, setCurrentUser] = useState<CurrentStaffUser | null>(null);
-  const [currentUserLoaded, setCurrentUserLoaded] = useState(false);
   const [technicians, setTechnicians] = useState<TechnicianOption[]>([]);
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [showCreateUserForm, setShowCreateUserForm] = useState(false);
@@ -147,7 +146,6 @@ export default function StaffPage() {
       setCurrentUser(
         data.currentUser && typeof data.currentUser === 'object' ? (data.currentUser as CurrentStaffUser) : null
       );
-      setCurrentUserLoaded(true);
       setOrders(nextOrders);
       setTechnicians(Array.isArray(data.technicians) ? (data.technicians as TechnicianOption[]) : []);
 
@@ -162,7 +160,6 @@ export default function StaffPage() {
       setSelectedOrderNumber('');
       setTechnicians([]);
       setCurrentUser(null);
-      setCurrentUserLoaded(true);
       setPermissions({ updateStatus: false, managePermissions: false });
       setError(loadError instanceof Error ? loadError.message : '讀取案件失敗');
     } finally {
@@ -565,16 +562,10 @@ export default function StaffPage() {
                       <td className="border border-slate-200 px-3 py-2">
                         <button
                           onClick={() => deleteUser(user)}
-                          disabled={deletingUserId !== null || !currentUserLoaded || currentUser?.id === user.id}
+                          disabled={deletingUserId !== null || currentUser?.id === user.id}
                           className="rounded-md border border-red-300 bg-red-50 px-3 py-1 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          {!currentUserLoaded
-                            ? '載入中...'
-                            : currentUser?.id === user.id
-                              ? '目前登入中'
-                              : deletingUserId === user.id
-                                ? '刪除中...'
-                                : '刪除'}
+                          {currentUser?.id === user.id ? '目前登入中' : deletingUserId === user.id ? '刪除中...' : '刪除'}
                         </button>
                       </td>
                     </tr>
