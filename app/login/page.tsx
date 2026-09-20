@@ -8,7 +8,7 @@ const inputClass = 'mt-2 w-full rounded-md border border-slate-300 p-3 outline-n
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [password, setPassword] = useState('123456');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -82,7 +82,7 @@ export default function LoginPage() {
 
         <p className="mt-6 rounded-md bg-slate-50 p-3 text-xs leading-6 text-slate-600">
           測試帳號：admin<br />
-          測試密碼：請使用 seed 設定的密碼
+          測試密碼：123456
         </p>
       </section>
     </div>
