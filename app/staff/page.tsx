@@ -162,13 +162,15 @@ export default function StaffPage() {
       </div>
 
       <div className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
-        <label htmlFor="status-filter" className="text-sm font-semibold text-slate-700">
-          狀態篩選
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <label htmlFor="status-filter" className="text-sm font-semibold text-slate-700">
+            狀態篩選
+          </label>
           <select
             id="status-filter"
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value)}
-            className="ml-3 rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-700"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-700"
           >
             <option value="">全部</option>
             {STATUS_OPTIONS.map((status) => (
@@ -177,7 +179,7 @@ export default function StaffPage() {
               </option>
             ))}
           </select>
-        </label>
+        </div>
       </div>
 
       {error && <p className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
@@ -197,6 +199,7 @@ export default function StaffPage() {
                   <li key={order.orderNumber}>
                     <button
                       onClick={() => setSelectedOrderNumber(order.orderNumber)}
+                      aria-pressed={selectedOrderNumber === order.orderNumber}
                       className={`w-full p-4 text-left transition hover:bg-slate-50 ${
                         selectedOrderNumber === order.orderNumber ? 'bg-blue-50' : ''
                       }`}
@@ -274,16 +277,27 @@ export default function StaffPage() {
               <div>
                 <p className="mb-2 text-slate-500">變更狀態：</p>
                 <div className="flex flex-wrap gap-2">
-                  {STATUS_OPTIONS.map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => updateStatus(status)}
-                      disabled={updatingStatus || selectedOrder.status === status}
-                      className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {status}
-                    </button>
-                  ))}
+                  {STATUS_OPTIONS.map((status) =>
+                    selectedOrder.status === status ? (
+                      <span
+                        key={status}
+                        aria-current="true"
+                        className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700"
+                      >
+                        {status}（目前）
+                      </span>
+                    ) : (
+                      <button
+                        key={status}
+                        onClick={() => updateStatus(status)}
+                        disabled={updatingStatus}
+                        aria-pressed="false"
+                        className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {status}
+                      </button>
+                    )
+                  )}
                 </div>
               </div>
             </div>
