@@ -31,9 +31,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-5 lg:px-12">
               <Link href="/" className="flex items-center gap-5" aria-label="台灣電力公司台東區營業處首頁">
                 <img
-                  src="/tpc-logo.svg"
+                  src="/tpclogo.svg"
                   alt="台灣電力公司 Taiwan Power Company"
-                  className="h-20 w-20 shrink-0 rounded-full object-contain md:h-24 md:w-24"
+                  className="h-20 w-auto shrink-0 object-contain md:h-24"
                 />
 
                 <div className="flex flex-col justify-center leading-[0.9] text-[#111111]">
