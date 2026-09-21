@@ -13,6 +13,15 @@ function isRole(value: string): value is Role {
   return roles.includes(value as Role);
 }
 
+function parseUserId(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) return value;
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
+    const parsed = Number(value.trim());
+    if (Number.isInteger(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
+
 async function getUserManageAccess(request: Request) {
   const user = await getUserFromRequest(request);
   if (!user) return { user: null, canManageUsers: false };
@@ -24,7 +33,7 @@ export async function GET(request: Request) {
   const { user, canManageUsers } = await getUserManageAccess(request);
   if (!user) return NextResponse.json({ message: '未登入' }, { status: 401 });
   if (!canManageUsers) {
-    return NextResponse.json({ message: '只有管理員可檢視使用者' }, { status: 403 });
+    return NextResponse.json({ message: '沒有檢視使用者權限' }, { status: 403 });
   }
 
   try {
@@ -45,7 +54,7 @@ export async function POST(request: Request) {
   const { user, canManageUsers } = await getUserManageAccess(request);
   if (!user) return NextResponse.json({ message: '未登入' }, { status: 401 });
   if (!canManageUsers) {
-    return NextResponse.json({ message: '只有管理員可新增使用者' }, { status: 403 });
+    return NextResponse.json({ message: '沒有新增使用者權限' }, { status: 403 });
   }
 
   const bodyRaw = await request.json().catch(() => ({}));
@@ -95,5 +104,50 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: '資料庫尚未初始化，請先完成 Prisma 初始化。' }, { status: 503 });
     }
     return NextResponse.json({ message: '新增使用者失敗，請稍後再試' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const { user, canManageUsers } = await getUserManageAccess(request);
+  if (!user) return NextResponse.json({ message: '未登入' }, { status: 401 });
+  if (!canManageUsers) {
+    return NextResponse.json({ message: '沒有刪除使用者權限' }, { status: 403 });
+  }
+
+  const bodyRaw = await request.json().catch(() => ({}));
+  const body = typeof bodyRaw === 'object' && bodyRaw ? bodyRaw : {};
+  const id = parseUserId(body.id);
+
+  if (!id) {
+    return NextResponse.json({ message: '使用者 id 格式不正確' }, { status: 400 });
+  }
+  if (id === user.id) {
+    return NextResponse.json({ message: '不可刪除目前登入中的帳號，請改由其他管理員處理。' }, { status: 400 });
+  }
+
+  try {
+    const existingUser = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, username: true, role: true }
+    });
+
+    if (!existingUser) {
+      return NextResponse.json({ message: '查無此使用者' }, { status: 404 });
+    }
+
+    await prisma.user.delete({ where: { id } });
+
+    return NextResponse.json({
+      message: `已刪除使用者 ${existingUser.username}`,
+      user: existingUser
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      return NextResponse.json({ message: '查無此使用者' }, { status: 404 });
+    }
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+      return NextResponse.json({ message: '資料庫尚未初始化，請先完成 Prisma 初始化。' }, { status: 503 });
+    }
+    return NextResponse.json({ message: '刪除使用者失敗，請稍後再試' }, { status: 500 });
   }
 }
