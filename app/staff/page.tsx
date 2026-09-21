@@ -125,6 +125,37 @@ export default function StaffPage() {
     [orders, selectedOrderNumber]
   );
 
+  const applyStaffDashboardData = useCallback((data: Record<string, unknown>, keepSelection: boolean) => {
+    const nextOrders = Array.isArray(data.orders) ? (data.orders as RepairOrder[]) : [];
+    setPermissions({
+      updateStatus:
+        !!data.permissions &&
+        typeof data.permissions === 'object' &&
+        (data.permissions as StaffPermissions).updateStatus === true,
+      managePermissions:
+        !!data.permissions &&
+        typeof data.permissions === 'object' &&
+        (data.permissions as StaffPermissions).managePermissions === true
+    });
+    setCurrentUser(
+      data.currentUser &&
+        typeof data.currentUser === 'object' &&
+        typeof (data.currentUser as CurrentUser).id === 'number' &&
+        typeof (data.currentUser as CurrentUser).username === 'string' &&
+        typeof (data.currentUser as CurrentUser).role === 'string'
+        ? (data.currentUser as CurrentUser)
+        : null
+    );
+    setOrders(nextOrders);
+    setTechnicians(Array.isArray(data.technicians) ? (data.technicians as TechnicianOption[]) : []);
+    setSelectedOrderNumber((currentOrderNumber) => {
+      if (keepSelection && nextOrders.some((order) => order.orderNumber === currentOrderNumber)) {
+        return currentOrderNumber;
+      }
+      return nextOrders[0]?.orderNumber ?? '';
+    });
+  }, []);
+
   const fetchOrders = useCallback(async (keepSelection = true) => {
     setError('');
     setActionMessage('');
@@ -143,26 +174,7 @@ export default function StaffPage() {
       if (!response.ok) {
         throw new Error(data.message || '讀取案件失敗');
       }
-
-      const nextOrders = Array.isArray(data.orders) ? (data.orders as RepairOrder[]) : [];
-      setPermissions({
-        updateStatus: data.permissions?.updateStatus === true,
-        managePermissions: data.permissions?.managePermissions === true
-      });
-      setCurrentUser(
-        data.currentUser && typeof data.currentUser.username === 'string' && typeof data.currentUser.role === 'string'
-          ? (data.currentUser as CurrentUser)
-          : null
-      );
-      setOrders(nextOrders);
-      setTechnicians(Array.isArray(data.technicians) ? (data.technicians as TechnicianOption[]) : []);
-
-      setSelectedOrderNumber((currentOrderNumber) => {
-        if (keepSelection && nextOrders.some((order) => order.orderNumber === currentOrderNumber)) {
-          return currentOrderNumber;
-        }
-        return nextOrders[0]?.orderNumber ?? '';
-      });
+      applyStaffDashboardData(data as Record<string, unknown>, keepSelection);
     } catch (loadError) {
       setOrders([]);
       setSelectedOrderNumber('');
@@ -173,7 +185,7 @@ export default function StaffPage() {
     } finally {
       setLoading(false);
     }
-  }, [router, statusFilter]);
+  }, [applyStaffDashboardData, router, statusFilter]);
 
   useEffect(() => {
     fetchOrders(false);
@@ -359,7 +371,24 @@ export default function StaffPage() {
         throw new Error(data.message || '刪除使用者失敗');
       }
       setActionMessage(data.message || `已刪除使用者 ${user.username}`);
-      await Promise.all([fetchUsers(), fetchOrders(true)]);
+      await fetchUsers();
+
+      try {
+        const searchParams = new URLSearchParams({ staff: '1' });
+        if (statusFilter) searchParams.set('status', statusFilter);
+        const ordersResponse = await fetch(`/api/repair-orders?${searchParams.toString()}`, { cache: 'no-store' });
+        if (ordersResponse.status === 401) {
+          router.push('/login');
+          return;
+        }
+        const ordersData = await readJsonSafe(ordersResponse);
+        if (!ordersResponse.ok) {
+          throw new Error(ordersData.message || '重新整理案件資料失敗');
+        }
+        applyStaffDashboardData(ordersData as Record<string, unknown>, true);
+      } catch (refreshError) {
+        setError(refreshError instanceof Error ? `使用者已刪除，但案件資料重新整理失敗：${refreshError.message}` : '使用者已刪除，但案件資料重新整理失敗');
+      }
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : '刪除使用者失敗');
     } finally {
@@ -572,13 +601,20 @@ export default function StaffPage() {
                       <td className="border border-slate-200 px-3 py-2">{formatDateTime(user.createdAt)}</td>
                       <td className="border border-slate-200 px-3 py-2">{formatDateTime(user.updatedAt)}</td>
                       <td className="border border-slate-200 px-3 py-2">
-                        <button
-                          onClick={() => deleteUser(user)}
-                          disabled={deletingUserId !== null}
-                          className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {deletingUserId === user.id ? '刪除中...' : '刪除'}
-                        </button>
+                        {currentUser?.id === user.id ? (
+                          <span className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-500">
+                            目前登入中
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => deleteUser(user)}
+                            disabled={deletingUserId !== null}
+                            aria-label={`刪除使用者 ${user.username}`}
+                            className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {deletingUserId === user.id ? '刪除中...' : '刪除'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

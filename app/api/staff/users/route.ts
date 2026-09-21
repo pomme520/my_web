@@ -135,12 +135,12 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ message: '查無此使用者' }, { status: 404 });
     }
 
-    await prisma.user.delete({ where: { id } });
-
-    return NextResponse.json({
-      message: `已刪除使用者 ${existingUser.username}`,
-      user: existingUser
+    await prisma.$transaction(async (tx) => {
+      await tx.session.deleteMany({ where: { userId: id } });
+      await tx.user.delete({ where: { id } });
     });
+
+    return NextResponse.json({ message: `已刪除使用者 ${existingUser.username}` });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
       return NextResponse.json({ message: '查無此使用者' }, { status: 404 });
