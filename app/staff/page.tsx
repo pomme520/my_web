@@ -12,6 +12,10 @@ const ROLE_LABELS: Record<Role, string> = {
   [Role.viewer]: '檢視者'
 };
 
+function isRole(value: string): value is Role {
+  return ROLE_OPTIONS.includes(value as Role);
+}
+
 type OrderStatus = (typeof STATUS_OPTIONS)[number];
 type TechnicianOption = { id: number; username: string };
 
@@ -142,7 +146,8 @@ export default function StaffPage() {
         typeof data.currentUser === 'object' &&
         typeof (data.currentUser as CurrentUser).id === 'number' &&
         typeof (data.currentUser as CurrentUser).username === 'string' &&
-        typeof (data.currentUser as CurrentUser).role === 'string'
+        typeof (data.currentUser as CurrentUser).role === 'string' &&
+        isRole((data.currentUser as CurrentUser).role)
         ? (data.currentUser as CurrentUser)
         : null
     );
@@ -377,12 +382,22 @@ export default function StaffPage() {
         throw new Error(data.message || '刪除使用者失敗');
       }
       setActionMessage(data.message || `已刪除使用者 ${user.username}`);
-      await fetchUsers();
+      const refreshErrors: string[] = [];
+
+      try {
+        await fetchUsers();
+      } catch (usersError) {
+        refreshErrors.push(usersError instanceof Error ? `使用者列表重新整理失敗：${usersError.message}` : '使用者列表重新整理失敗');
+      }
 
       try {
         await fetchOrders(true, { resetMessages: false, throwOnError: true });
       } catch (refreshError) {
-        setError(refreshError instanceof Error ? `使用者已刪除，但案件資料重新整理失敗：${refreshError.message}` : '使用者已刪除，但案件資料重新整理失敗');
+        refreshErrors.push(refreshError instanceof Error ? `案件資料重新整理失敗：${refreshError.message}` : '案件資料重新整理失敗');
+      }
+
+      if (refreshErrors.length > 0) {
+        setError(`使用者已刪除，但${refreshErrors.join('；')}`);
       }
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : '刪除使用者失敗');
