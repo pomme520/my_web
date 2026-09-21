@@ -12,6 +12,10 @@ const ROLE_LABELS: Record<Role, string> = {
   [Role.viewer]: '檢視者'
 };
 
+function isRole(value: string): value is Role {
+  return ROLE_OPTIONS.includes(value as Role);
+}
+
 type OrderStatus = (typeof STATUS_OPTIONS)[number];
 type TechnicianOption = { id: number; username: string };
 
@@ -34,6 +38,13 @@ type StaffPermissions = {
   updateStatus: boolean;
   managePermissions: boolean;
 };
+
+type CurrentUser = {
+  id: number;
+  username: string;
+  role: Role;
+};
+
 type StaffUser = {
   id: number;
   username: string;
@@ -102,6 +113,7 @@ export default function StaffPage() {
   const [error, setError] = useState('');
   const [actionMessage, setActionMessage] = useState('');
   const [permissions, setPermissions] = useState<StaffPermissions>({ updateStatus: false, managePermissions: false });
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [technicians, setTechnicians] = useState<TechnicianOption[]>([]);
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [showCreateUserForm, setShowCreateUserForm] = useState(false);
@@ -110,15 +122,51 @@ export default function StaffPage() {
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState<Role>(Role.viewer);
+  const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
 
   const selectedOrder = useMemo(
     () => orders.find((order) => order.orderNumber === selectedOrderNumber) ?? null,
     [orders, selectedOrderNumber]
   );
 
-  const fetchOrders = useCallback(async (keepSelection = true) => {
-    setError('');
-    setActionMessage('');
+  const applyStaffDashboardData = useCallback((data: Record<string, unknown>, keepSelection: boolean) => {
+    const nextOrders = Array.isArray(data.orders) ? (data.orders as RepairOrder[]) : [];
+    setPermissions({
+      updateStatus:
+        !!data.permissions &&
+        typeof data.permissions === 'object' &&
+        (data.permissions as StaffPermissions).updateStatus === true,
+      managePermissions:
+        !!data.permissions &&
+        typeof data.permissions === 'object' &&
+        (data.permissions as StaffPermissions).managePermissions === true
+    });
+    setCurrentUser(
+      data.currentUser &&
+        typeof data.currentUser === 'object' &&
+        typeof (data.currentUser as CurrentUser).id === 'number' &&
+        typeof (data.currentUser as CurrentUser).username === 'string' &&
+        typeof (data.currentUser as CurrentUser).role === 'string' &&
+        isRole((data.currentUser as CurrentUser).role)
+        ? (data.currentUser as CurrentUser)
+        : null
+    );
+    setOrders(nextOrders);
+    setTechnicians(Array.isArray(data.technicians) ? (data.technicians as TechnicianOption[]) : []);
+    setSelectedOrderNumber((currentOrderNumber) => {
+      if (keepSelection && nextOrders.some((order) => order.orderNumber === currentOrderNumber)) {
+        return currentOrderNumber;
+      }
+      return nextOrders[0]?.orderNumber ?? '';
+    });
+  }, []);
+
+  const fetchOrders = useCallback(async (keepSelection = true, options?: { resetMessages?: boolean; throwOnError?: boolean }) => {
+    const resetMessages = options?.resetMessages !== false;
+    if (resetMessages) {
+      setError('');
+      setActionMessage('');
+    }
     setLoading(true);
 
     try {
@@ -134,31 +182,21 @@ export default function StaffPage() {
       if (!response.ok) {
         throw new Error(data.message || '讀取案件失敗');
       }
-
-      const nextOrders = Array.isArray(data.orders) ? (data.orders as RepairOrder[]) : [];
-      setPermissions({
-        updateStatus: data.permissions?.updateStatus === true,
-        managePermissions: data.permissions?.managePermissions === true
-      });
-      setOrders(nextOrders);
-      setTechnicians(Array.isArray(data.technicians) ? (data.technicians as TechnicianOption[]) : []);
-
-      setSelectedOrderNumber((currentOrderNumber) => {
-        if (keepSelection && nextOrders.some((order) => order.orderNumber === currentOrderNumber)) {
-          return currentOrderNumber;
-        }
-        return nextOrders[0]?.orderNumber ?? '';
-      });
+      applyStaffDashboardData(data as Record<string, unknown>, keepSelection);
     } catch (loadError) {
       setOrders([]);
       setSelectedOrderNumber('');
+      setCurrentUser(null);
       setTechnicians([]);
       setPermissions({ updateStatus: false, managePermissions: false });
       setError(loadError instanceof Error ? loadError.message : '讀取案件失敗');
+      if (options?.throwOnError) {
+        throw loadError;
+      }
     } finally {
       setLoading(false);
     }
-  }, [router, statusFilter]);
+  }, [applyStaffDashboardData, router, statusFilter]);
 
   useEffect(() => {
     fetchOrders(false);
@@ -320,6 +358,54 @@ export default function StaffPage() {
     }
   };
 
+  const deleteUser = async (user: StaffUser) => {
+    if (deletingUserId !== null) return;
+    const confirmed = window.confirm(`確定要刪除使用者「${user.username}」嗎？此操作會同步清除其登入 session。`);
+    if (!confirmed) return;
+
+    setDeletingUserId(user.id);
+    setError('');
+    setActionMessage('');
+
+    try {
+      const response = await fetch('/api/staff/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: user.id })
+      });
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+      const data = await readJsonSafe(response);
+      if (!response.ok) {
+        throw new Error(data.message || '刪除使用者失敗');
+      }
+      setActionMessage(data.message || `已刪除使用者 ${user.username}`);
+      const refreshErrors: string[] = [];
+
+      try {
+        await fetchUsers();
+      } catch (usersError) {
+        refreshErrors.push(usersError instanceof Error ? `使用者列表重新整理失敗：${usersError.message}` : '使用者列表重新整理失敗');
+      }
+
+      try {
+        await fetchOrders(true, { resetMessages: false, throwOnError: true });
+      } catch (refreshError) {
+        refreshErrors.push(refreshError instanceof Error ? `案件資料重新整理失敗：${refreshError.message}` : '案件資料重新整理失敗');
+      }
+
+      if (refreshErrors.length > 0) {
+        setError(`使用者已刪除，但${refreshErrors.join('；')}`);
+      }
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : '刪除使用者失敗');
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
   const exportOrders = async () => {
     if (loading || orders.length === 0) return;
 
@@ -359,47 +445,56 @@ export default function StaffPage() {
           <h1 className="mt-2 text-3xl font-black text-slate-900">案件處理後台</h1>
           <p className="mt-3 text-slate-600">查看所有報修案件、檢視細節並更新處理狀態。</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {permissions.managePermissions && (
-            <button
-              onClick={() => setShowCreateUserForm((current) => !current)}
-              disabled={creatingUser || loading}
-              className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {showCreateUserForm ? '取消新增使用者' : '新增使用者'}
-            </button>
+        <div className="flex flex-col items-start gap-3 sm:items-end">
+          {currentUser && (
+            <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
+              目前登入：<span className="font-bold text-slate-900">{currentUser.username}</span>
+              <span className="mx-2 text-slate-300">|</span>
+              角色：<span className="font-bold text-slate-900">{ROLE_LABELS[currentUser.role] ?? currentUser.role}</span>
+            </div>
           )}
-          {permissions.managePermissions && (
+          <div className="flex flex-wrap gap-2">
+            {permissions.managePermissions && (
+              <button
+                onClick={() => setShowCreateUserForm((current) => !current)}
+                disabled={creatingUser || loading}
+                className="rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {showCreateUserForm ? '取消新增使用者' : '新增使用者'}
+              </button>
+            )}
+            {permissions.managePermissions && (
+              <button
+                onClick={toggleUsersList}
+                disabled={loading || loadingUsers}
+                className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {showUsersList ? '關閉使用者列表' : '檢視使用者'}
+              </button>
+            )}
             <button
-              onClick={toggleUsersList}
-              disabled={loading || loadingUsers}
-              className="rounded-md border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={exportOrders}
+              disabled={loading || exporting || orders.length === 0}
+              className="rounded-md border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {showUsersList ? '關閉使用者列表' : '檢視使用者'}
+              {exporting ? '匯出中...' : '匯出'}
             </button>
-          )}
-          <button
-            onClick={exportOrders}
-            disabled={loading || exporting || orders.length === 0}
-            className="rounded-md border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {exporting ? '匯出中...' : '匯出'}
-          </button>
-          <button
-            onClick={() => fetchOrders(true)}
-            disabled={loading || updatingStatus || creatingUser}
-            aria-busy={loading}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? '載入中...' : '重新整理'}
-          </button>
-          <button
-            onClick={logout}
-            disabled={loggingOut || loading || updatingStatus || creatingUser}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {loggingOut ? '登出中...' : '登出'}
-          </button>
+            <button
+              onClick={() => fetchOrders(true)}
+              disabled={loading || updatingStatus || creatingUser}
+              aria-busy={loading}
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? '載入中...' : '重新整理'}
+            </button>
+            <button
+              onClick={logout}
+              disabled={loggingOut || loading || updatingStatus || creatingUser || deletingUserId !== null}
+              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {loggingOut ? '登出中...' : '登出'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -505,6 +600,7 @@ export default function StaffPage() {
                     <th className="border border-slate-200 px-3 py-2">角色</th>
                     <th className="border border-slate-200 px-3 py-2">建立時間</th>
                     <th className="border border-slate-200 px-3 py-2">更新時間</th>
+                    <th className="border border-slate-200 px-3 py-2">操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -514,6 +610,22 @@ export default function StaffPage() {
                       <td className="border border-slate-200 px-3 py-2">{ROLE_LABELS[user.role] ?? user.role}</td>
                       <td className="border border-slate-200 px-3 py-2">{formatDateTime(user.createdAt)}</td>
                       <td className="border border-slate-200 px-3 py-2">{formatDateTime(user.updatedAt)}</td>
+                      <td className="border border-slate-200 px-3 py-2">
+                        {currentUser?.id === user.id ? (
+                          <span className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-500">
+                            目前登入中
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => deleteUser(user)}
+                            disabled={deletingUserId !== null}
+                            aria-label={`刪除使用者 ${user.username}`}
+                            className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {deletingUserId === user.id ? '刪除中...' : '刪除'}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
