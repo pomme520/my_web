@@ -156,9 +156,12 @@ export default function StaffPage() {
     });
   }, []);
 
-  const fetchOrders = useCallback(async (keepSelection = true) => {
-    setError('');
-    setActionMessage('');
+  const fetchOrders = useCallback(async (keepSelection = true, options?: { resetMessages?: boolean; throwOnError?: boolean }) => {
+    const resetMessages = options?.resetMessages !== false;
+    if (resetMessages) {
+      setError('');
+      setActionMessage('');
+    }
     setLoading(true);
 
     try {
@@ -182,6 +185,9 @@ export default function StaffPage() {
       setTechnicians([]);
       setPermissions({ updateStatus: false, managePermissions: false });
       setError(loadError instanceof Error ? loadError.message : '讀取案件失敗');
+      if (options?.throwOnError) {
+        throw loadError;
+      }
     } finally {
       setLoading(false);
     }
@@ -374,18 +380,7 @@ export default function StaffPage() {
       await fetchUsers();
 
       try {
-        const searchParams = new URLSearchParams({ staff: '1' });
-        if (statusFilter) searchParams.set('status', statusFilter);
-        const ordersResponse = await fetch(`/api/repair-orders?${searchParams.toString()}`, { cache: 'no-store' });
-        if (ordersResponse.status === 401) {
-          router.push('/login');
-          return;
-        }
-        const ordersData = await readJsonSafe(ordersResponse);
-        if (!ordersResponse.ok) {
-          throw new Error(ordersData.message || '重新整理案件資料失敗');
-        }
-        applyStaffDashboardData(ordersData as Record<string, unknown>, true);
+        await fetchOrders(true, { resetMessages: false, throwOnError: true });
       } catch (refreshError) {
         setError(refreshError instanceof Error ? `使用者已刪除，但案件資料重新整理失敗：${refreshError.message}` : '使用者已刪除，但案件資料重新整理失敗');
       }
