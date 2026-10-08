@@ -3,8 +3,8 @@ import './globals.css';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: '台東區營業處電腦報修網（測試版）',
-  description: '台灣電力公司台東區營業處電腦設備報修與進度查詢測試系統'
+  title: '台東區營業處電腦報修網',
+  description: '台灣電力公司台東區營業處電腦設備報修與進度查詢系統'
 };
 
 const navigation = [
@@ -61,7 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           <div className="border-b border-amber-200 bg-amber-50">
             <div className="mx-auto max-w-7xl px-6 py-2 text-center text-xs text-amber-900 lg:px-12">
-              本網站目前為功能測試版，非台灣電力公司正式網站，資料僅供測試使用。
+              台東區營業處電腦報修與進度查詢服務
             </div>
           </div>
 
@@ -99,8 +99,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </div>
               </div>
               <div>
-                <h2 className="font-bold text-white">測試環境</h2>
-                <p className="mt-3 leading-6 text-slate-300">本系統為測試用途，請勿輸入正式或敏感資料。</p>
+                <h2 className="font-bold text-white">個資提醒</h2>
+                <p className="mt-3 leading-6 text-slate-300">請僅填寫報修所需資訊，勿輸入密碼等敏感資料。</p>
               </div>
             </div>
           </footer>
