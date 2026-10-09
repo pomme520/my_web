@@ -5,7 +5,7 @@ import { Role, getDefaultPermissionsForRole, roles } from '../lib/permissions';
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash('123456', 12);
+  const passwordHash = await bcrypt.hash(process.env.SEED_PASSWORD || '123456', 12);
   const users = [
     { username: 'admin', role: Role.admin },
     { username: 'technician', role: Role.technician },

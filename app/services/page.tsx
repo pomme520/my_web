@@ -60,7 +60,7 @@ export default function Home() {
           <div className="grid gap-8 md:grid-cols-3">
             <div><p className="text-sm text-slate-500">報修方式</p><p className="mt-2 text-lg font-bold">線上填寫報修單</p></div>
             <div><p className="text-sm text-slate-500">案件查詢</p><p className="mt-2 text-lg font-bold">使用案件編號查詢</p></div>
-            <div><p className="text-sm text-slate-500">系統狀態</p><p className="mt-2 text-lg font-bold text-emerald-700">測試版服務運作中</p></div>
+            <div><p className="text-sm text-slate-500">系統狀態</p><p className="mt-2 text-lg font-bold text-emerald-700">服務運作中</p></div>
           </div>
         </div>
       </section>
