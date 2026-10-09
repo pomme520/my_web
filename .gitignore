@@ -1,3 +1,9 @@
 node_modules
 .next
 .env*
+!.env.example
+*.db
+*.db-journal
+test.db*
+prisma/*.db*
+*.tsbuildinfo

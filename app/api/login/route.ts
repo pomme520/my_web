@@ -7,8 +7,12 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const username = String(body.username ?? '').trim();
   const password = String(body.password ?? '');
+  if (!username || !password || username.length > 64 || password.length > 128) {
+    return NextResponse.json({ message: '帳號或密碼錯誤' }, { status: 401 });
+  }
   const user = await prisma.user.findUnique({ where: { username } });
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) return NextResponse.json({ message: '帳號或密碼錯誤' }, { status: 401 });
+  await prisma.session.deleteMany({ where: { expiresAt: { lt: new Date() } } });
   const token = newSessionToken();
   await prisma.session.create({ data: { token, userId: user.id, expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000) } });
   const response = NextResponse.json({ user: { username: user.username, role: user.role } });

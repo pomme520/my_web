@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getUserFromRequest, hasPermission } from '@/lib/auth';
@@ -11,7 +12,7 @@ function text(value: unknown) {
 }
 
 function newOrderNumber() {
-  return `R-${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 900 + 100)}`;
+  return `R-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
 }
 
 function isAllowedStatus(status: string) {
@@ -86,9 +87,7 @@ export async function GET(request: Request) {
         description: true,
         deviceType: true,
         issueType: true,
-        phone: true,
-        email: true,
-        assignedTechnician: { select: { id: true, username: true } }
+        assignedTechnician: { select: { username: true } }
       }
     });
     if (!order) return NextResponse.json({ message: '查無此案件' }, { status: 404 });
@@ -114,6 +113,18 @@ export async function POST(request: Request) {
 
   if (!customerName || !phone || !department || !deviceType || !issueType || !description) {
     return NextResponse.json({ message: '請完整填寫必填欄位' }, { status: 400 });
+  }
+  if (
+    customerName.length > 50 || phone.length > 30 || email.length > 120 || department.length > 80 ||
+    deviceType.length > 50 || issueType.length > 50 || description.length > 2000
+  ) {
+    return NextResponse.json({ message: '欄位內容過長' }, { status: 400 });
+  }
+  if (!/^[0-9+\-()#\s]{6,30}$/.test(phone)) {
+    return NextResponse.json({ message: '電話格式不正確' }, { status: 400 });
+  }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return NextResponse.json({ message: 'Email 格式不正確' }, { status: 400 });
   }
 
   try {

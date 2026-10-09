@@ -5,17 +5,24 @@ import { Role, getDefaultPermissionsForRole, roles } from '../lib/permissions';
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash('123456', 12);
-  const users = [
-    { username: 'admin', role: Role.admin },
-    { username: 'technician', role: Role.technician },
-    { username: 'viewer', role: Role.viewer }
-  ];
+  const isProd = process.env.NODE_ENV === 'production';
+  const initialPassword = process.env.SEED_ADMIN_PASSWORD ?? (isProd ? '' : '123456');
+  if (!initialPassword || (isProd && initialPassword.length < 12)) {
+    throw new Error('Production seeding requires SEED_ADMIN_PASSWORD (min 12 chars).');
+  }
+  const passwordHash = await bcrypt.hash(initialPassword, 12);
+  const users = isProd
+    ? [{ username: 'admin', role: Role.admin }]
+    : [
+        { username: 'admin', role: Role.admin },
+        { username: 'technician', role: Role.technician },
+        { username: 'viewer', role: Role.viewer }
+      ];
 
   for (const user of users) {
     await prisma.user.upsert({
       where: { username: user.username },
-      update: { role: user.role, passwordHash },
+      update: isProd ? {} : { role: user.role, passwordHash },
       create: { username: user.username, role: user.role, passwordHash }
     });
   }
@@ -31,4 +38,6 @@ async function main() {
   }
 }
 
-main().finally(() => prisma.$disconnect());
+main()
+  .catch((e) => { console.error(e); process.exitCode = 1; })
+  .finally(() => prisma.$disconnect());
