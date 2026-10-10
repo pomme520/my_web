@@ -5,7 +5,10 @@ import { Role, getDefaultPermissionsForRole, roles } from '../lib/permissions';
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash('123456', 12);
+  if (process.env.NODE_ENV === 'production' && !process.env.SEED_PASSWORD) {
+    throw new Error('正式環境必須設定 SEED_PASSWORD 環境變數');
+  }
+  const passwordHash = await bcrypt.hash(process.env.SEED_PASSWORD || '123456', 12);
   const users = [
     { username: 'admin', role: Role.admin },
     { username: 'technician', role: Role.technician },

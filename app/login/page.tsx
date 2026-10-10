@@ -7,8 +7,8 @@ const inputClass = 'mt-2 w-full rounded-md border border-slate-300 p-3 outline-n
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('123456');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -23,16 +23,17 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim(), password })
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         throw new Error(data.message || '登入失敗');
       }
 
-      router.push('/staff');
+      const next = new URLSearchParams(window.location.search).get('next');
+      router.push(next && /^\/staff(\/[A-Za-z0-9_\-/]*)?$/.test(next) && !next.includes('//') ? next : '/staff');
       router.refresh();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : '登入失敗');
+      setError(submitError instanceof TypeError ? '網路異常，請稍後再試。' : submitError instanceof Error ? submitError.message : '登入失敗');
     } finally {
       setSubmitting(false);
     }
@@ -54,6 +55,7 @@ export default function LoginPage() {
               onChange={(event) => setUsername(event.target.value)}
               className={inputClass}
               autoComplete="username"
+              autoFocus
             />
           </label>
 
@@ -81,8 +83,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 rounded-md bg-slate-50 p-3 text-xs leading-6 text-slate-600">
-          測試帳號：admin<br />
-          測試密碼：123456
+          帳號由系統管理員建立，如忘記帳號或密碼，請洽管理員。
         </p>
       </section>
     </div>
