@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
@@ -10,8 +11,57 @@ function text(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+const DEVICE_TYPES = ['桌上型電腦', '筆記型電腦', '螢幕', '印表機', '其他'];
+const ISSUE_TYPES = ['無法開機', '網路問題', '軟體問題', '硬體問題', '其他'];
+const LIMITS = { customerName: 50, phone: 30, email: 120, department: 80, description: 2000 };
+const PHONE_PATTERN = /^[0-9+\-()#\s]{6,30}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_ORDER_NUMBER_ATTEMPTS = 5;
+
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX = 10;
+const submissions = new Map<string, number[]>();
+
+function isRateLimited(request: Request) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const now = Date.now();
+  const recent = (submissions.get(ip) ?? []).filter((time) => now - time < RATE_LIMIT_WINDOW_MS);
+  if (recent.length >= RATE_LIMIT_MAX) {
+    submissions.set(ip, recent);
+    return true;
+  }
+  recent.push(now);
+  submissions.set(ip, recent);
+  if (submissions.size > 1000) {
+    submissions.forEach((times, key) => {
+      if (times.every((time) => now - time >= RATE_LIMIT_WINDOW_MS)) submissions.delete(key);
+    });
+  }
+  return false;
+}
+
 function newOrderNumber() {
-  return `R-${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 900 + 100)}`;
+  return `R-${Date.now().toString().slice(-8)}${crypto.randomInt(100, 1000)}`;
+}
+
+function validateNewOrder(fields: Record<'customerName' | 'phone' | 'email' | 'department' | 'deviceType' | 'issueType' | 'description', string>) {
+  if (!fields.customerName || !fields.phone || !fields.department || !fields.deviceType || !fields.issueType || !fields.description) {
+    return '請完整填寫必填欄位';
+  }
+  if (fields.customerName.length > LIMITS.customerName) return `姓名不可超過 ${LIMITS.customerName} 字`;
+  if (fields.department.length > LIMITS.department) return `部門不可超過 ${LIMITS.department} 字`;
+  if (fields.description.length > LIMITS.description) return `問題描述不可超過 ${LIMITS.description} 字`;
+  if (!PHONE_PATTERN.test(fields.phone)) return '聯絡電話格式不正確';
+  if (fields.email && (fields.email.length > LIMITS.email || !EMAIL_PATTERN.test(fields.email))) return '電子信箱格式不正確';
+  if (!DEVICE_TYPES.includes(fields.deviceType)) return '設備類型不正確';
+  if (!ISSUE_TYPES.includes(fields.issueType)) return '問題類型不正確';
+  return null;
+}
+
+function maskName(name: string) {
+  const chars = Array.from(name);
+  if (chars.length <= 1) return name;
+  return chars[0] + '*'.repeat(chars.length - 1);
 }
 
 function isAllowedStatus(status: string) {
@@ -86,13 +136,12 @@ export async function GET(request: Request) {
         description: true,
         deviceType: true,
         issueType: true,
-        phone: true,
-        email: true,
-        assignedTechnician: { select: { id: true, username: true } }
+        createdAt: true,
+        updatedAt: true
       }
     });
     if (!order) return NextResponse.json({ message: '查無此案件' }, { status: 404 });
-    return NextResponse.json({ order });
+    return NextResponse.json({ order: { ...order, customerName: maskName(order.customerName) } });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientInitializationError) {
       return NextResponse.json({ message: '資料庫尚未初始化，請先完成 Prisma 初始化。' }, { status: 503 });
@@ -102,6 +151,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (isRateLimited(request)) {
+    return NextResponse.json({ message: '送出次數過多，請稍後再試。' }, { status: 429 });
+  }
   const bodyRaw = await request.json().catch(() => ({}));
   const body = typeof bodyRaw === 'object' && bodyRaw ? bodyRaw : {};
   const customerName = text(body.customerName);
@@ -112,24 +164,24 @@ export async function POST(request: Request) {
   const issueType = text(body.issueType);
   const description = text(body.description);
 
-  if (!customerName || !phone || !department || !deviceType || !issueType || !description) {
-    return NextResponse.json({ message: '請完整填寫必填欄位' }, { status: 400 });
+  const validationError = validateNewOrder({ customerName, phone, email, department, deviceType, issueType, description });
+  if (validationError) {
+    return NextResponse.json({ message: validationError }, { status: 400 });
   }
 
   try {
-    const created = await prisma.repairOrder.create({
-      data: {
-        orderNumber: newOrderNumber(),
-        customerName,
-        phone,
-        email,
-        department,
-        deviceType,
-        issueType,
-        description
+    for (let attempt = 0; attempt < MAX_ORDER_NUMBER_ATTEMPTS; attempt += 1) {
+      try {
+        const created = await prisma.repairOrder.create({
+          data: { orderNumber: newOrderNumber(), customerName, phone, email, department, deviceType, issueType, description }
+        });
+        return NextResponse.json({ orderNumber: created.orderNumber }, { status: 201 });
+      } catch (createError) {
+        const isDuplicate = createError instanceof Prisma.PrismaClientKnownRequestError && createError.code === 'P2002';
+        if (!isDuplicate || attempt === MAX_ORDER_NUMBER_ATTEMPTS - 1) throw createError;
       }
-    });
-    return NextResponse.json({ orderNumber: created.orderNumber }, { status: 201 });
+    }
+    return NextResponse.json({ message: '報修送出失敗，請稍後再試。' }, { status: 500 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientInitializationError) {
       return NextResponse.json({ message: '資料庫尚未初始化，請先完成 Prisma 初始化。' }, { status: 503 });

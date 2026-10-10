@@ -45,3 +45,11 @@ export function getDefaultPermissionsForRole(role: Role) {
     enabled: defaultRolePermissions[role][name]
   }));
 }
+
+export function isRole(value: unknown): value is Role {
+  return typeof value === 'string' && roles.includes(value as Role);
+}
+
+export function isPermissionName(value: unknown): value is PermissionName {
+  return typeof value === 'string' && permissionNames.includes(value as PermissionName);
+}

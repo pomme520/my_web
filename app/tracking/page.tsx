@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type Order = {
   orderNumber: string;
@@ -8,32 +8,64 @@ type Order = {
   customerName: string;
   department: string;
   description: string;
+  deviceType?: string;
+  issueType?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
+
+const statusStyles: Record<string, string> = {
+  待確認: 'bg-amber-100 text-amber-800',
+  處理中: 'bg-blue-100 text-blue-800',
+  已完成: 'bg-emerald-100 text-emerald-800',
+  已取消: 'bg-slate-200 text-slate-700'
+};
+
+const formatTime = (value?: string) => (value ? new Date(value).toLocaleString('zh-TW', { hour12: false }) : '-');
 
 export default function TrackingPage() {
   const [number, setNumber] = useState('');
   const [result, setResult] = useState<Order | null>(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const search = async () => {
+  const search = async (value: string = number) => {
+    if (loading) return;
+    const orderNumber = value.trim();
     setError('');
     setResult(null);
 
-    if (!number.trim()) {
+    if (!orderNumber) {
       setError('請輸入案件編號。');
       return;
     }
 
-    const res = await fetch('/api/repair-orders?orderNumber=' + encodeURIComponent(number));
-    const data = await res.json();
+    setLoading(true);
+    try {
+      const res = await fetch('/api/repair-orders?orderNumber=' + encodeURIComponent(orderNumber));
+      const data = await res.json().catch(() => ({}));
 
-    if (!res.ok) {
-      setError(data.message || '查詢失敗');
-      return;
+      if (!res.ok) {
+        setError(data.message || '查詢失敗');
+        return;
+      }
+
+      setResult(data.order);
+    } catch {
+      setError('網路異常，查詢失敗，請稍後再試。');
+    } finally {
+      setLoading(false);
     }
-
-    setResult(data.order);
   };
+
+  useEffect(() => {
+    const initial = new URLSearchParams(window.location.search).get('orderNumber');
+    if (initial) {
+      setNumber(initial);
+      search(initial);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-16 lg:px-12">
@@ -50,11 +82,11 @@ export default function TrackingPage() {
             value={number}
             onChange={(e) => setNumber(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && search()}
-            placeholder="例如 R-123456"
+            placeholder="例如 R-12345678123"
             className="min-w-0 flex-1 rounded-md border border-slate-300 p-3 outline-none focus:border-blue-700"
           />
-          <button onClick={search} className="rounded-md bg-blue-700 px-6 py-3 font-bold text-white transition hover:bg-blue-800">
-            查詢案件
+          <button onClick={() => search()} disabled={loading} className="rounded-md disabled:cursor-not-allowed disabled:opacity-60 bg-blue-700 px-6 py-3 font-bold text-white transition hover:bg-blue-800">
+            {loading ? '查詢中...' : '查詢案件'}
           </button>
         </div>
 
@@ -68,7 +100,7 @@ export default function TrackingPage() {
               <p className="text-sm text-slate-500">案件編號</p>
               <p className="text-2xl font-black text-slate-900">{result.orderNumber}</p>
             </div>
-            <span className="w-fit rounded-full bg-blue-100 px-4 py-2 font-bold text-blue-800">{result.status}</span>
+            <span className={`w-fit rounded-full px-4 py-2 font-bold ${statusStyles[result.status] ?? 'bg-blue-100 text-blue-800'}`}>{result.status}</span>
           </div>
 
           <div className="grid gap-6 p-6 md:grid-cols-2">
@@ -79,6 +111,14 @@ export default function TrackingPage() {
             <div>
               <p className="text-sm text-slate-500">部門</p>
               <p className="mt-1 font-bold">{result.department}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-500">送出時間</p>
+              <p className="mt-1 font-bold">{formatTime(result.createdAt)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-slate-500">最後更新</p>
+              <p className="mt-1 font-bold">{formatTime(result.updatedAt)}</p>
             </div>
             <div className="md:col-span-2">
               <p className="text-sm text-slate-500">問題描述</p>

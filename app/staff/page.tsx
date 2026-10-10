@@ -208,6 +208,7 @@ export default function StaffPage() {
 
   const updateStatus = async (status: OrderStatus) => {
     if (!selectedOrder || selectedOrder.status === status) return;
+    if (status === '已取消' && !window.confirm(`確定要取消案件 ${selectedOrder.orderNumber} 嗎？`)) return;
 
     setUpdatingStatus(true);
     setError('');
