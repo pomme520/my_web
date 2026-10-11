@@ -80,10 +80,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 rounded-md bg-slate-50 p-3 text-xs leading-6 text-slate-600">
-          測試帳號：admin<br />
-          測試密碼：123456
-        </p>
       </section>
     </div>
   );
